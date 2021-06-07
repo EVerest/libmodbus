@@ -1,0 +1,5 @@
+---
+liblog:
+  git: git@github.com:EVerest/liblog.git
+  git_tag: main
+  options: ["BUILD_EXAMPLES OFF"]

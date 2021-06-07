@@ -1,0 +1,5 @@
+build
+.vscode
+CMakeCache.txt
+*.swp
+workspace.yaml
