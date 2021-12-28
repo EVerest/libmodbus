@@ -1,0 +1,3 @@
+add_executable(tcp_connection_example connection_example.cpp)
+target_link_libraries(tcp_connection_example libconnection everest::log)
+install(TARGETS tcp_connection_example DESTINATION examples/connection)

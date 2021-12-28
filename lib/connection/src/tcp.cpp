@@ -17,7 +17,7 @@
 
 using namespace everest::connection;
 
-TCPConnection::TCPConnection(const std::string& address_, int port_) : address(address_), port(port_), socket_fd(-1) {
+TCPConnection::TCPConnection(const std::string& address_, const int& port_) : address(address_), port(port_), socket_fd(-1) {
     make_connection();
 }
 
@@ -74,7 +74,7 @@ int TCPConnection::close_connection() {
     return close_status;
 }
 
-bool TCPConnection::is_valid() {
+const bool TCPConnection::is_valid() const {
     if (connection_status == -1 || socket_fd == -1)
         return false;
     return true;
