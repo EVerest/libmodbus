@@ -36,7 +36,7 @@ int TCPConnection::make_connection() {
         EVLOG(error) << error_message.str();
         throw exceptions::tcp::tcp_connection_error(error_message.str());
     }
-    EVLOG(info) << "Successfully opened TCP socket with endpoint " << address << ":" << port << ". fd = " << socket_fd;
+    EVLOG(debug) << "Successfully opened TCP socket with endpoint " << address << ":" << port << ". fd = " << socket_fd;
 
     // Setting up address struct
     struct sockaddr_in server_address;
@@ -52,7 +52,7 @@ int TCPConnection::make_connection() {
         EVLOG(error) << error_message.str();
         throw exceptions::tcp::tcp_connection_error(error_message.str());
     }
-    EVLOG(info) << "Succesfully opened TCP socket connection with endpoint " << address << ":" << port << ". fd = " << socket_fd;
+    EVLOG(debug) << "Succesfully opened TCP socket connection with endpoint " << address << ":" << port << ". fd = " << socket_fd;
 
     return connection_status;
 }
@@ -68,7 +68,7 @@ int TCPConnection::close_connection() {
         EVLOG(error) << error_message.str();
         throw exceptions::tcp::tcp_connection_error(error_message.str());
     }
-    EVLOG(info) << "Closed socket with fd = " << socket_fd << ".";
+    EVLOG(debug) << "Closed socket with fd = " << socket_fd << ".";
     socket_fd = -1;
     connection_status = -1;
     return close_status;
@@ -101,7 +101,7 @@ int TCPConnection::send_bytes(const std::vector<uint8_t>& bytes_to_send) {
         throw exceptions::communication_error(error_message.str());
     }
 
-    EVLOG(info) << "Successfully sent " << bytes_sent << " bytes.";
+    EVLOG(debug) << "Successfully sent " << bytes_sent << " bytes.";
     return bytes_sent;
 }
 
@@ -127,7 +127,7 @@ std::vector<uint8_t> TCPConnection::receive_bytes(unsigned int number_of_bytes) 
     }
 
     received_bytes.assign(response_buffer, response_buffer+num_bytes_received);
-    EVLOG(info) << received_bytes.size() << " bytes received from " << address << ":" << port << " - " << utils::get_bytes_hex_string(received_bytes);
+    EVLOG(debug) << received_bytes.size() << " bytes received from " << address << ":" << port << " - " << utils::get_bytes_hex_string(received_bytes);
     return received_bytes;
 }
 
