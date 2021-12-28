@@ -23,6 +23,13 @@ namespace everest { namespace connection { namespace exceptions {
         };
     };
 
+    namespace udp {
+        class udp_socket_error : public connection_error {
+            public:
+                udp_socket_error(const std::string& what_arg) : connection_error(what_arg) {}
+        };
+    };
+
   } // namespace exceptions
  }  // namespace connection
 };  // namespace everest
