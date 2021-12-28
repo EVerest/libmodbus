@@ -14,13 +14,13 @@ namespace everest { namespace connection {
             int socket_fd;
 
         public:
-            TCPConnection(const std::string& address_, int port_);
+            TCPConnection(const std::string& address_, const int& port_);
             ~TCPConnection();
             int make_connection();
             int send_bytes(const std::vector<uint8_t>& bytes_to_send);
             std::vector<uint8_t> receive_bytes(unsigned int number_of_bytes);
             int close_connection();
-            bool is_valid();
+            const bool is_valid() const;
     };
 
  } // namespace connection

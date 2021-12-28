@@ -10,7 +10,7 @@
 int main() {
     everest::connection::TCPConnection conn("127.0.0.1", 502);
     if (!conn.is_valid()) return 0;
-    everest::modbus::ModbusTCPClient client = everest::modbus::ModbusTCPClient(conn);
+    everest::modbus::ModbusTCPClient client(conn);
     std::vector<uint8_t> v = client.read_holding_register(1, 40000, 1);
     everest::modbus::utils::print_message_hex(v);
 }
