@@ -11,7 +11,7 @@
 
 #include <everest/logging.hpp>
 
-#include <connection/udp.hpp>
+#include <connection/connection.hpp>
 #include <connection/utils.hpp>
 #include <connection/exceptions.hpp>
 

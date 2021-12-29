@@ -6,7 +6,7 @@
 #include <boost/log/trivial.hpp>
 #include <sstream>
 
-#include <connection/udp.hpp>
+#include <connection/connection.hpp>
 #include <connection/utils.hpp>
 
 int main() {

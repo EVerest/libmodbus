@@ -11,7 +11,7 @@
 
 #include <everest/logging.hpp>
 
-#include <connection/tcp.hpp>
+#include <connection/connection.hpp>
 #include <connection/utils.hpp>
 #include <connection/exceptions.hpp>
 
@@ -58,10 +58,10 @@ int TCPConnection::make_connection() {
 }
 
 int TCPConnection::close_connection() {
-    
+
     EVLOG(debug) << "Attempting to close connection for socket with fd = " << socket_fd << ".";
     int close_status = close(socket_fd);
-    
+
     if (close_status == -1) {
         std::stringstream error_message;
         error_message << "Failed to close TCP socket with fd = " << socket_fd << ".";

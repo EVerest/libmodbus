@@ -5,9 +5,9 @@
 
 using namespace everest::modbus;
 
-ModbusTCPClient::ModbusTCPClient(connection::Connection& conn_) : ModbusClient(conn_) {}
+ModbusIPClient::ModbusIPClient(connection::Connection& conn_) : ModbusClient(conn_) {}
 
-const std::vector<uint8_t> ModbusTCPClient::full_message_from_body(const std::vector<uint8_t>& body, uint16_t message_length, uint8_t unit_id) const {
+const std::vector<uint8_t> ModbusIPClient::full_message_from_body(const std::vector<uint8_t>& body, uint16_t message_length, uint8_t unit_id) const {
     // Creates and prepend MBAP header
     std::vector<uint8_t> mbap_header = utils::tcp::make_mbap_header(message_length, unit_id);
     std::vector<uint8_t> full_message;
@@ -17,6 +17,6 @@ const std::vector<uint8_t> ModbusTCPClient::full_message_from_body(const std::ve
     return full_message;
 }
 
-const uint16_t ModbusTCPClient::validate_response(const std::vector<uint8_t>& response, const std::vector<uint8_t>& request) const {
+const uint16_t ModbusIPClient::validate_response(const std::vector<uint8_t>& response, const std::vector<uint8_t>& request) const {
     return modbus::utils::tcp::check_mbap_header(request, response);
 }
