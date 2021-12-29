@@ -13,7 +13,7 @@
 
 using namespace everest::modbus;
 
-std::vector<uint8_t> utils::tcp::make_mbap_header(uint16_t message_length, uint8_t unit_id) {
+std::vector<uint8_t> utils::ip::make_mbap_header(uint16_t message_length, uint8_t unit_id) {
 
     // Header buffer
     std::vector<uint8_t> mbap_header(consts::tcp::MBAP_HEADER_LENGTH);
@@ -59,7 +59,7 @@ std::vector<uint8_t> utils::build_read_holding_register_message_body(uint16_t fi
     return message_body;
 }
 
-uint16_t utils::tcp::check_mbap_header(const std::vector<uint8_t>& sent_message, const std::vector<uint8_t>& received_message) {
+uint16_t utils::ip::check_mbap_header(const std::vector<uint8_t>& sent_message, const std::vector<uint8_t>& received_message) {
 
     // Validating echoed transaction ID
     bool transaction_id_match = (sent_message[0] == received_message[0] && sent_message[1] == received_message[1]);

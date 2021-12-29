@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2020 - 2021 Pionix GmbH and Contributors to EVerest
-#ifndef CONNECTION_EXCEPTIONS_H
-#define CONNECTION_EXCEPTIONS_H
+
+#pragma once
 
 #include <stdexcept>
 
@@ -23,8 +23,13 @@ namespace everest { namespace connection { namespace exceptions {
         };
     };
 
+    namespace udp {
+        class udp_socket_error : public connection_error {
+            public:
+                udp_socket_error(const std::string& what_arg) : connection_error(what_arg) {}
+        };
+    };
+
   } // namespace exceptions
  }  // namespace connection
 };  // namespace everest
-
-#endif

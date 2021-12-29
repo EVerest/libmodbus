@@ -1,3 +1,5 @@
 add_executable(tcp_connection_example connection_example.cpp)
+add_executable(udp_connection_example udp_connection_example.cpp)
 target_link_libraries(tcp_connection_example libconnection everest::log)
-install(TARGETS tcp_connection_example DESTINATION examples/connection)
+target_link_libraries(udp_connection_example libconnection everest::log)
+install(TARGETS tcp_connection_example udp_connection_example DESTINATION examples/connection)

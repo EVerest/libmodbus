@@ -9,7 +9,7 @@
 #include <modbus/utils.hpp>
 
 int main() {
-    everest::connection::TCPConnection conn("127.0.0.1", 502);
+    everest::connection::UDPConnection conn("127.0.0.1", 502);
     if (!conn.is_valid()) return 0;
     everest::modbus::ModbusIPClient client(conn);
     std::vector<uint8_t> v = client.read_holding_register(1, 40000, 1);
