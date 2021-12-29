@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 option(BUILD_EXAMPLES "Build example programs" OFF)
 
-add_library(${PROJECT_NAME} src/modbus_client.cpp src/modbus_tcp_client.cpp src/modbus_rtu_client.cpp src/utils.cpp)
+add_library(${PROJECT_NAME} src/modbus_client.cpp src/modbus_ip_client.cpp src/modbus_rtu_client.cpp src/utils.cpp)
 add_library(everest::modbus ALIAS ${PROJECT_NAME})
 
 target_link_libraries(${PROJECT_NAME}

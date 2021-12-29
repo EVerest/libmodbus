@@ -9,7 +9,7 @@ ModbusIPClient::ModbusIPClient(connection::Connection& conn_) : ModbusClient(con
 
 const std::vector<uint8_t> ModbusIPClient::full_message_from_body(const std::vector<uint8_t>& body, uint16_t message_length, uint8_t unit_id) const {
     // Creates and prepend MBAP header
-    std::vector<uint8_t> mbap_header = utils::tcp::make_mbap_header(message_length, unit_id);
+    std::vector<uint8_t> mbap_header = utils::ip::make_mbap_header(message_length, unit_id);
     std::vector<uint8_t> full_message;
     full_message.reserve( mbap_header.size() + body.size() );
     full_message.insert( full_message.end(), mbap_header.begin(), mbap_header.end() );
@@ -18,5 +18,8 @@ const std::vector<uint8_t> ModbusIPClient::full_message_from_body(const std::vec
 }
 
 const uint16_t ModbusIPClient::validate_response(const std::vector<uint8_t>& response, const std::vector<uint8_t>& request) const {
-    return modbus::utils::tcp::check_mbap_header(request, response);
+    return modbus::utils::ip::check_mbap_header(request, response);
 }
+
+ModbusTCPClient::ModbusTCPClient(connection::TCPConnection& conn_) : ModbusIPClient(conn_) {}
+ModbusUDPClient::ModbusUDPClient(connection::UDPConnection& conn_) : ModbusIPClient(conn_) {}

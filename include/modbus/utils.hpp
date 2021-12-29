@@ -18,8 +18,8 @@ namespace everest { namespace modbus { namespace utils {
     void print_message_hex(const std::vector<uint8_t>& message);
     void print_message_first_N_bytes(unsigned char *message, int N);
 
-    // MODBUS/TCP specific utils
-    namespace tcp {
+    // MODBUS/IP specific utils
+    namespace ip {
         // Utility funcs
         std::vector<uint8_t> make_mbap_header(uint16_t message_length, uint8_t unit_id);
         uint16_t check_mbap_header(const std::vector<uint8_t>& sent_message, const std::vector<uint8_t>& received_message);

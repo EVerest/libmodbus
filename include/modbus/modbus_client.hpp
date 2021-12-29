@@ -28,9 +28,21 @@ namespace everest { namespace modbus {
         class ModbusIPClient : public ModbusClient {
             public:
                 ModbusIPClient(connection::Connection& conn_);
-                ~ModbusIPClient() override = default;
+                virtual ~ModbusIPClient() = default;
                 const std::vector<uint8_t> full_message_from_body(const std::vector<uint8_t>& body, uint16_t message_length, uint8_t unit_id) const override;
                 const uint16_t validate_response(const std::vector<uint8_t>& response, const std::vector<uint8_t>& request) const override;
+        };
+
+        class ModbusTCPClient : public ModbusIPClient {
+            public:
+                ModbusTCPClient(connection::TCPConnection& conn_);
+                ~ModbusTCPClient() override = default;
+        };
+
+        class ModbusUDPClient : public ModbusIPClient {
+            public:
+                ModbusUDPClient(connection::UDPConnection& conn_);
+                ~ModbusUDPClient() override = default;
         };
 
         class ModbusRTUClient : public ModbusClient {
