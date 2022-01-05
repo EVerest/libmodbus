@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <string>
 
 namespace everest { namespace connection {
     class Connection {
