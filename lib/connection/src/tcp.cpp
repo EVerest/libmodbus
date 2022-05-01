@@ -9,7 +9,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#include <everest/logging.hpp>
+#include <everest/logging/logging.hpp>
 
 #include <connection/connection.hpp>
 #include <connection/utils.hpp>
