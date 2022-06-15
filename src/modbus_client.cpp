@@ -9,7 +9,7 @@
 using namespace everest::modbus;
 
 ModbusClient::ModbusClient(connection::Connection& conn_) : conn(conn_) {
-    EVLOG(debug) << "Initialized ModbusClient";
+    EVLOG_debug << "Initialized ModbusClient";
 }
 
 const std::vector<uint8_t> ModbusClient::read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes) const {

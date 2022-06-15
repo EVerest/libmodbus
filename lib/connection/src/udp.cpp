@@ -31,14 +31,14 @@ int UDPConnection::make_connection() {
      * The make_connection() and close_connection() methods are implemented just to setup things locally and to comply with the proposed interface. One should bear that in mind while using this class. */
 
     // Opening socket locally
-    EVLOG(debug) << "Attempting to create UDP socket connection with endpoint " << address << ":" << port << ".";
+    EVLOG_debug << "Attempting to create UDP socket connection with endpoint " << address << ":" << port << ".";
     socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd == -1) {
         std::stringstream error_message;
         error_message << "UDP Socket creation error: fd = " << socket_fd;
         throw exceptions::udp::udp_socket_error(error_message.str());
     }
-    EVLOG(debug) << "Successfully opened local UDP socket";
+    EVLOG_debug << "Successfully opened local UDP socket";
 
     // Setting up address struct
     struct sockaddr_in server_address;
@@ -50,7 +50,7 @@ int UDPConnection::make_connection() {
     if (connection_status == -1) {
         std::stringstream error_message;
         error_message << "UDP socket open failed. fd = " << socket_fd;
-        EVLOG(error) << error_message.str();
+        EVLOG_error << error_message.str();
         throw exceptions::udp::udp_socket_error(error_message.str());
     }
 
@@ -59,16 +59,16 @@ int UDPConnection::make_connection() {
 
 int UDPConnection::close_connection() {
 
-    EVLOG(debug) << "Attempting to close UDP socket with fd = " << socket_fd << ".";
+    EVLOG_debug << "Attempting to close UDP socket with fd = " << socket_fd << ".";
     int close_status = close(socket_fd);
 
     if (close_status == -1) {
         std::stringstream error_message;
         error_message << "Failed to close UDP socket with fd = " << socket_fd << ".";
-        EVLOG(error) << error_message.str();
+        EVLOG_error << error_message.str();
         throw exceptions::udp::udp_socket_error(error_message.str());
     }
-    EVLOG(debug) << "Closed UDP socket with fd = " << socket_fd << ".";
+    EVLOG_debug << "Closed UDP socket with fd = " << socket_fd << ".";
     socket_fd = -1;
     connection_status = -1;
     return close_status;
@@ -85,23 +85,23 @@ int UDPConnection::send_bytes(const std::vector<uint8_t>& bytes_to_send) {
     if (!is_valid()) {
         std::stringstream error_message;
         error_message << "MODBUS UDP - No connection established with " << address << ":" << port << ".";
-        EVLOG(error) << error_message.str();
+        EVLOG_error << error_message.str();
         throw exceptions::udp::udp_socket_error(error_message.str());
     }
 
     int message_len = bytes_to_send.size();
-    EVLOG(debug) << "Attempting to send message to " << address << ":" << port << " - " << utils::get_bytes_hex_string(bytes_to_send) << "- Size = " << message_len;
+    EVLOG_debug << "Attempting to send message to " << address << ":" << port << " - " << utils::get_bytes_hex_string(bytes_to_send) << "- Size = " << message_len;
 
     // Trying to send
     int bytes_sent = sendto(socket_fd, (unsigned char*) bytes_to_send.data(), message_len, 0, (struct sockaddr*) NULL, sizeof(struct sockaddr));
     if (bytes_sent == -1) {
         std::stringstream error_message;
         error_message << "MODBUS UDP - Error while sending message: " << bytes_to_send.data();
-        EVLOG(error) << error_message.str();
+        EVLOG_error << error_message.str();
         throw exceptions::communication_error(error_message.str());
     }
 
-    EVLOG(debug) << "Successfully sent " << bytes_sent << " bytes.";
+    EVLOG_debug << "Successfully sent " << bytes_sent << " bytes.";
     return bytes_sent;
 }
 
@@ -110,7 +110,7 @@ std::vector<uint8_t> UDPConnection::receive_bytes(unsigned int number_of_bytes) 
     if (!is_valid()) {
         std::stringstream error_message;
         error_message << "No connection established with " << address << ":" << port << ".";
-        EVLOG(error) << error_message.str();
+        EVLOG_error << error_message.str();
         throw exceptions::udp::udp_socket_error(error_message.str());
     }
 
@@ -121,13 +121,13 @@ std::vector<uint8_t> UDPConnection::receive_bytes(unsigned int number_of_bytes) 
 
     int num_bytes_received = recvfrom(socket_fd, &response_buffer, sizeof(response_buffer), 0, (struct sockaddr*) NULL, NULL);
     if (num_bytes_received == -1) {
-        EVLOG(error) << "No bytes received from " << address << ":" << port << ". Closing connection and returning preallocated buffer.";
+        EVLOG_error << "No bytes received from " << address << ":" << port << ". Closing connection and returning preallocated buffer.";
         close_connection();
         return received_bytes;
     }
 
     received_bytes.assign(response_buffer, response_buffer+num_bytes_received);
-    EVLOG(debug) << received_bytes.size() << " bytes received from " << address << ":" << port << " - " << utils::get_bytes_hex_string(received_bytes);
+    EVLOG_debug << received_bytes.size() << " bytes received from " << address << ":" << port << " - " << utils::get_bytes_hex_string(received_bytes);
     return received_bytes;
 }
 
