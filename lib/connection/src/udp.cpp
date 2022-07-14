@@ -17,7 +17,7 @@
 
 using namespace everest::connection;
 
-UDPConnection::UDPConnection(const std::string& address_, const int& port_) : address(address_), port(port_), socket_fd(-1) {
+UDPConnection::UDPConnection(const std::string& address_, const int& port_) : port(port_), address(address_), socket_fd(-1) {
     make_connection();
 }
 
@@ -74,7 +74,7 @@ int UDPConnection::close_connection() {
     return close_status;
 }
 
-const bool UDPConnection::is_valid() const {
+bool UDPConnection::is_valid() const {
     if (connection_status == -1 || socket_fd == -1)
         return false;
     return true;
