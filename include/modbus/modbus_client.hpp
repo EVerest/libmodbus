@@ -49,7 +49,7 @@ namespace everest { namespace modbus {
             public:
                 ModbusRTUClient(connection::Connection& conn_);
                 virtual ~ModbusRTUClient() {};
-                std::vector<uint8_t> full_message_from_body(const std::vector<uint8_t>& body, uint16_t message_length, uint8_t unit_id);
+                const std::vector<uint8_t> full_message_from_body(const std::vector<uint8_t>& body, uint16_t message_length, uint8_t unit_id) const override;
         };
 
     } // namespace modbus

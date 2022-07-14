@@ -18,6 +18,10 @@ namespace everest { namespace modbus { namespace utils {
     void print_message_hex(const std::vector<uint8_t>& message);
     void print_message_first_N_bytes(unsigned char *message, int N);
 
+    using PayloadType   = unsigned char;
+    using CRCResultType = std::uint16_t;
+    CRCResultType calcCRC_16_ANSI( const PayloadType* payload ,std::size_t payload_length );
+
     // MODBUS/IP specific utils
     namespace ip {
         // Utility funcs

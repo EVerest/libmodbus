@@ -33,3 +33,5 @@ if (BUILD_EXAMPLES)
     add_subdirectory(${PROJECT_SOURCE_DIR}/examples)
     add_subdirectory(${PROJECT_SOURCE_DIR}/lib/connection/examples)
 endif()
+
+add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
