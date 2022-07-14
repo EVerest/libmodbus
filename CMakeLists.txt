@@ -13,6 +13,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 option(BUILD_EXAMPLES "Build example programs" OFF)
+option(BUILD_TDD_STUFF "Build gtest tdd stuff" OFF)
 
 add_library(${PROJECT_NAME} src/modbus_client.cpp src/modbus_ip_client.cpp src/modbus_rtu_client.cpp src/utils.cpp)
 add_library(everest::modbus ALIAS ${PROJECT_NAME})
@@ -34,4 +35,6 @@ if (BUILD_EXAMPLES)
     add_subdirectory(${PROJECT_SOURCE_DIR}/lib/connection/examples)
 endif()
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
+if (BUILD_TDD_STUFF)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
+endif()
