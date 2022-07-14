@@ -74,7 +74,7 @@ int UDPConnection::close_connection() {
     return close_status;
 }
 
-const bool UDPConnection::is_valid() const {
+bool UDPConnection::is_valid() const {
     if (connection_status == -1 || socket_fd == -1)
         return false;
     return true;

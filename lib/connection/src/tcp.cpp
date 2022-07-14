@@ -74,7 +74,7 @@ int TCPConnection::close_connection() {
     return close_status;
 }
 
-const bool TCPConnection::is_valid() const {
+bool TCPConnection::is_valid() const {
     if (connection_status == -1 || socket_fd == -1)
         return false;
     return true;

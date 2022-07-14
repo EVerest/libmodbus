@@ -23,7 +23,7 @@ namespace everest { namespace connection {
             virtual int close_connection() = 0;
             virtual int send_bytes(const std::vector<uint8_t>& bytes_to_send) = 0;
             virtual std::vector<uint8_t> receive_bytes(unsigned int number_of_bytes) = 0;
-            virtual const bool is_valid() const = 0;
+            virtual bool is_valid() const = 0;
     };
 
     class TCPConnection : public Connection {
@@ -39,7 +39,7 @@ namespace everest { namespace connection {
             int send_bytes(const std::vector<uint8_t>& bytes_to_send);
             std::vector<uint8_t> receive_bytes(unsigned int number_of_bytes);
             int close_connection();
-            const bool is_valid() const;
+            bool is_valid() const;
     };
 
     class UDPConnection : public Connection {
@@ -55,7 +55,7 @@ namespace everest { namespace connection {
             int send_bytes(const std::vector<uint8_t>& bytes_to_send);
             std::vector<uint8_t> receive_bytes(unsigned int number_of_bytes);
             int close_connection();
-            const bool is_valid() const;
+            bool is_valid() const;
     };
 
  } // namespace connection
