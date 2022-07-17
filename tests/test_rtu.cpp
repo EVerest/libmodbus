@@ -61,3 +61,128 @@ TEST(RTUTests, test_crc16 ) {
 
     }
 }
+
+#include <stdio.h>
+#include <string.h>
+
+#include <fcntl.h> // Contains file controls like O_RDWR
+#include <errno.h> // Error integer and strerror() function
+#include <termios.h> // Contains POSIX terminal control definitions
+#include <unistd.h> // write(), read(), close()
+                    //
+
+#include <stdexcept>
+#include <string>
+
+int openSerialDevice( const std::string device ) {
+
+    using namespace std::string_literals;
+
+    int fd = open( device.c_str() , O_RDWR );
+
+    if ( not ( fd == -1 ) )
+        return fd;
+
+    throw std::runtime_error( "Error open serial device: "s + device + " Reason: " + strerror( errno ) );
+
+}
+
+// void configureSerialDevice(
+
+TEST(RTUTests, test_lowlevel_serial ) {
+
+    // int serial_port = open("/dev/ttyUSB0", O_RDWR);
+    // int serial_port = open("/dev/tty3", O_RDWR);
+
+    ASSERT_THROW( openSerialDevice("/dev/does_not_exist" ), std::runtime_error );
+
+    int serial_port = openSerialDevice("/dev/ttyUSB0" ); // throws std::runtime_error if open fails
+
+    // configureSerialDevice( serial_port, tty_config, options );
+
+    termios tty;
+
+    int tcgetattr_result = tcgetattr(serial_port, &tty);
+    if( tcgetattr_result != 0 ) {
+        printf("Error %i from tcgetattr: %s\n", errno, strerror(errno));
+    }
+
+    ASSERT_EQ( tcgetattr_result, 0 );
+
+    // BSM power meter used this as default:
+    // 19200 Baud
+    cfsetspeed(&tty, B19200);
+    // Parity
+    tty.c_cflag  |= PARENB;
+    // 8 Data bits
+    tty.c_cflag &= ~CSIZE;
+    tty.c_cflag |= CS8;
+    // 1 Stop bit
+    tty.c_cflag &= ~CSTOPB;
+    // no CRTSCTS (?)
+    tty.c_cflag &= ~CRTSCTS;
+
+    // turn off modem specific stuff...
+    tty.c_cflag |= CREAD | CLOCAL; // Turn on READ & ignore ctrl lines (CLOCAL = 1)
+
+    // disable canonical mode (in canonical mode, data is processed after newline).
+    tty.c_lflag &= ~ICANON;
+
+    //
+    tty.c_lflag &= ~ECHO; // Disable echo
+    tty.c_lflag &= ~ECHOE; // Disable erasure
+    tty.c_lflag &= ~ECHONL; // Disable new-line echo
+
+    tty.c_lflag &= ~ISIG; // Disable interpretation of INTR, QUIT and SUSP
+
+    tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL); // Disable any special handling of received bytes
+
+    tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
+    tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
+
+   // VMIN = 0, VTIME = 0: No blocking, return immediately with what is available
+   // play with this... we will see if this is needed.
+   // VMIN is a character count ranging from 0 to 255 characters, and VTIME is time measured in 0.1 second intervals, (0 to 25.5 seconds).
+    tty.c_cc[VTIME] = 50; // wait at most for 5 seconds.
+   tty.c_cc[VMIN]  = 0;
+
+   // Save tty settings, also checking for error
+   int tcsetattr_result = tcsetattr(serial_port, TCSANOW, &tty);
+   if ( tcsetattr_result != 0) {
+       printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
+   }
+
+   ASSERT_EQ( tcsetattr_result , 0 );
+
+   const unsigned char request_common_model[] { 0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
+   // const unsigned char request_common_model[] { 0x2A,0x03,0x9C,0x44,0x00,0x42,0x00,0x00 };
+
+   int bytes_written = write( serial_port, request_common_model , sizeof(request_common_model)/sizeof(unsigned char) );
+
+   std::cout << "bytes written: " << bytes_written << std::endl;
+
+   unsigned char readbuffer[ std::numeric_limits<std::uint16_t>::max() ];
+
+   bool changedTiming = false;
+
+   for( int x = 0 ; x < 100 ; ++x ) {
+       std::size_t n = read( serial_port, &readbuffer, sizeof( readbuffer ) );
+
+       if ( not changedTiming ) {
+           tty.c_cc[VTIME] = 2;
+           int tcsetattr_result = tcsetattr(serial_port, TCSANOW, &tty);
+           if ( tcsetattr_result != 0) {
+               printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
+           }
+       }
+
+       std::cout << std::dec << "bytes read: " << n << std::endl;
+
+       for( std::size_t i = 0; i < n ; ++i )
+           std::cout << std::dec << "byte number : " << i << " char value: " << std::hex << readbuffer[ i ] << " hex value: 0x" << std::hex << (int)readbuffer[ i ] << "\n";
+
+       if ( n == 0 )
+           break;
+   }
+   std::cout.flush();
+}
