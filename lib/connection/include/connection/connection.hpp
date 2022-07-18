@@ -58,5 +58,28 @@ namespace everest { namespace connection {
             bool is_valid() const;
     };
 
+        struct RTUConnectionConfiguration {
+
+            std::string m_device = "/dev/ttyUSB0";
+            // std::string m_baud = "19200"; //hardcoded for now
+            unsigned int m_initial_wait_deciseconds = 50; // wait 5 secs for response
+        };
+
+        class RTUConnection : public Connection {
+        private:
+
+            const RTUConnectionConfiguration m_config;
+
+        public:
+
+            RTUConnection( const RTUConnectionConfiguration& );
+            virtual int make_connection() override;
+            virtual int close_connection() override;
+            virtual int send_bytes(const std::vector<uint8_t>& bytes_to_send) override;
+            virtual std::vector<uint8_t> receive_bytes(unsigned int number_of_bytes) override;
+            virtual bool is_valid() const override;
+        };
+
+
  } // namespace connection
 }; // namespace everest
