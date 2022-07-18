@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <termios.h>
 
 namespace everest { namespace connection {
     class Connection {
@@ -69,6 +70,8 @@ namespace everest { namespace connection {
         private:
 
             const RTUConnectionConfiguration m_config;
+            int m_fd = -1;
+            termios m_tty_config {};
 
         public:
 
