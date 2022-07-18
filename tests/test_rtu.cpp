@@ -87,7 +87,7 @@ int openSerialDevice( const std::string device ) {
 
 }
 
-void getCurrentSerialDeviceConfiguration( int, serial_port_fd, termios* tty ) {
+void getConfiguration( int serial_port_fd, termios* tty ) {
 
     if( tcgetattr(serial_port_fd, tty) != 0 ) {
         int myerror = errno;
@@ -96,53 +96,63 @@ void getCurrentSerialDeviceConfiguration( int, serial_port_fd, termios* tty ) {
 
 }
 
-void configureSerialDevice( int serial_port_fd, termios* tty /*, const SerialDeviceOptions& */ ) {
+void updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ ) {
 
     // using namespace std::string_literals;
 
     // we are a bit verbose with these settings...
     // BSM power meter used this as default:
     // 19200 Baud
-    cfsetspeed(&tty, B19200);
+    cfsetspeed( tty, B19200);
     // Parity
-    tty.c_cflag  |= PARENB;
+    tty->c_cflag  |= PARENB;
     // 8 Data bits
-    tty.c_cflag &= ~CSIZE;
-    tty.c_cflag |= CS8;
+    tty->c_cflag &= ~CSIZE;
+    tty->c_cflag |= CS8;
     // 1 Stop bit
-    tty.c_cflag &= ~CSTOPB;
+    tty->c_cflag &= ~CSTOPB;
     // no CRTSCTS (?)
-    tty.c_cflag &= ~CRTSCTS;
+    tty->c_cflag &= ~CRTSCTS;
 
     // turn off modem specific stuff...
-    tty.c_cflag |= CREAD | CLOCAL; // Turn on READ & ignore ctrl lines (CLOCAL = 1)
+    tty->c_cflag |= CREAD | CLOCAL; // Turn on READ & ignore ctrl lines (CLOCAL = 1)
 
     // disable canonical mode (in canonical mode, data is processed after newline).
-    tty.c_lflag &= ~ICANON;
+    tty->c_lflag &= ~ICANON;
 
-    tty.c_lflag &= ~ECHO; // Disable echo
-    tty.c_lflag &= ~ECHOE; // Disable erasure
-    tty.c_lflag &= ~ECHONL; // Disable new-line echo
+    tty->c_lflag &= ~ECHO; // Disable echo
+    tty->c_lflag &= ~ECHOE; // Disable erasure
+    tty->c_lflag &= ~ECHONL; // Disable new-line echo
 
-    tty.c_lflag &= ~ISIG; // Disable interpretation of INTR, QUIT and SUSP
+    tty->c_lflag &= ~ISIG; // Disable interpretation of INTR, QUIT and SUSP
 
-    tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL); // Disable any special handling of received bytes
+    tty->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL); // Disable any special handling of received bytes
 
-    tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
-    tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
+    tty->c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
+    tty->c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
+ }
+
+void updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds ) {
    // VMIN = 0, VTIME = 0: No blocking, return immediately with what is available
    // play with this... we will see if this is needed.
    // VMIN is a character count ranging from 0 to 255 characters, and VTIME is time measured in 0.1 second intervals, (0 to 25.5 seconds).
-   tty.c_cc[VTIME] = 50; // wait at most for 5 seconds.
-   tty.c_cc[VMIN]  = 0;
+   tty->c_cc[VTIME] = timeout_deciseconds; // wait at most for timeout_deciseconds for the first char to read
+   tty->c_cc[VMIN]  = 0;
+}
+
+void configureDevice( int serial_port_fd, termios* tty ) {
 
    // Save tty settings, also checking for error
-   if ( tcsetattr(serial_port, TCSANOW, &tty) != 0) {
+   if ( tcsetattr(serial_port_fd, TCSANOW, tty) != 0) {
        int myerror = errno;
        throw std::runtime_error("Error " + std::to_string( myerror ) + " from tcsetattr: " + strerror( myerror ));
    }
+}
 
+template<typename T>
+std::size_t size_in_byte(const T& array) {
+    return sizeof(array) / sizeof(array[0] );
 }
 
 TEST(RTUTests, test_lowlevel_serial ) {
@@ -152,13 +162,15 @@ TEST(RTUTests, test_lowlevel_serial ) {
     // PLAN: this will be moved into a method in the connection object
     int serial_port = openSerialDevice("/dev/ttyUSB0" ); // throws std::runtime_error if open fails
     termios tty_config;
-    getCurrentSerialDeviceConfiguration( serial_port, &tty_config );
-    configureSerialDevice( serial_port, &tty_config /*, options */ );
+    getConfiguration( serial_port, &tty_config );
+    updateConfiguration( &tty_config /*, options */ );
+    updateTimeoutConfiguration( &tty_config, 50 );
+    configureDevice( serial_port, &tty_config );
 
     // Test starts here.
    const unsigned char request_common_model[] { 0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
 
-   int bytes_written = write( serial_port, request_common_model , sizeof(request_common_model)/sizeof(unsigned char) );
+   int bytes_written = write( serial_port, request_common_model , sizeof(request_common_model) );
 
    std::cout << "bytes written: " << bytes_written << std::endl;
 
@@ -170,12 +182,10 @@ TEST(RTUTests, test_lowlevel_serial ) {
        std::size_t n = read( serial_port, &readbuffer, sizeof( readbuffer ) );
 
        if ( not changedTiming ) {
-           tty.c_cc[VTIME] = 2;
-           int tcsetattr_result = tcsetattr(serial_port, TCSANOW, &tty);
-           if ( tcsetattr_result != 0) {
-               printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
-           }
-       }
+           updateTimeoutConfiguration( &tty_config, 2 );
+           configureDevice( serial_port, &tty_config );
+           changedTiming = true;
+      }
 
        std::cout << std::dec << "bytes read: " << n << std::endl;
 
