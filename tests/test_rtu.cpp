@@ -150,9 +150,61 @@ void configureDevice( int serial_port_fd, termios* tty ) {
    }
 }
 
-template<typename T>
-std::size_t size_in_byte(const T& array) {
-    return sizeof(array) / sizeof(array[0] );
+::size_t writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count ) {
+
+    ::size_t bytes_written_sum = 0;
+
+    while ( bytes_written_sum < count ) {
+    // write() writes up to count bytes from the buffer starting at buf to the file referred to by the file descriptor fd.
+    // On success, the number of bytes written is returned.  On error, -1 is returned, and errno is set to indicate the error.
+        ssize_t bytes_written = ::write( serial_port_fd, buffer, count );
+        if ( bytes_written == -1 ) {
+            // handle error
+            int myerror = errno;
+            throw std::runtime_error( "Error: " + std::to_string( myerror ) + " from ::write: " + strerror( myerror ));
+        }
+        bytes_written_sum += bytes_written;
+    }
+    return bytes_written_sum;
+}
+
+::ssize_t readByteFromDevice( int fd, unsigned char* charToRead ) {
+
+    ssize_t read_result = ::read( fd, charToRead, 1 );
+    if( not ( read_result == -1 ))
+        return read_result;
+
+    int myerror = errno;
+    throw std::runtime_error("Error: " + std::to_string( myerror ) + " from ::read: " + strerror( myerror ));
+
+}
+
+::size_t readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config ) {
+
+    static_assert( std::is_unsigned<decltype(count)>::value );
+
+    if ( count == 0 )
+        return 0;
+
+    // read at least one byte
+    std::size_t index = 0;
+    ::size_t bytes_read = readByteFromDevice( serial_port_fd, &buffer[ index++ ] );
+    if ( bytes_read == 0 )
+        return 0;
+
+    // dont wait that long after the end of transmission as it is done at the beginning.
+    updateTimeoutConfiguration( tty_config, 2 );
+    configureDevice( serial_port_fd, tty_config );
+
+    while ( bytes_read < count ) {
+
+        auto bytes_current = readByteFromDevice( serial_port_fd, &buffer[ index++ ] );
+        if ( bytes_current == 0 )
+            return bytes_read;
+        bytes_read += bytes_current;
+
+    }
+    return bytes_read;
 }
 
 TEST(RTUTests, test_lowlevel_serial ) {
@@ -170,30 +222,37 @@ TEST(RTUTests, test_lowlevel_serial ) {
     // Test starts here.
    const unsigned char request_common_model[] { 0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
 
-   int bytes_written = write( serial_port, request_common_model , sizeof(request_common_model) );
+   // writeToDevice goes to connection object?
+   auto bytes_written = writeToDevice( serial_port, request_common_model, sizeof( request_common_model ));
 
-   std::cout << "bytes written: " << bytes_written << std::endl;
+   ASSERT_EQ( bytes_written , sizeof( request_common_model ) ); // the common model has this size on this device...
+   // std::cout << "bytes written: " << bytes_written << std::endl;
 
    unsigned char readbuffer[ std::numeric_limits<std::uint16_t>::max() ];
 
-   bool changedTiming = false;
+   // readFromDevice goes to connection object?
+   ::size_t bytes_read = readFromDevice( serial_port, readbuffer, sizeof( readbuffer ) , &tty_config );
 
-   for( int x = 0 ; x < 100 ; ++x ) {
-       std::size_t n = read( serial_port, &readbuffer, sizeof( readbuffer ) );
+   // std::cout << "bytes read: " << bytes_read << "\n";
+   EXPECT_EQ( bytes_read , 137 ); // the common model has this size on this device...
+   ASSERT_GT( bytes_read, 0 );    // does not make sense to continue testing if we dont read anything...
 
-       if ( not changedTiming ) {
-           updateTimeoutConfiguration( &tty_config, 2 );
-           configureDevice( serial_port, &tty_config );
-           changedTiming = true;
-      }
+   // for ( ::size_t index = 0; index < bytes_read; index++ )
+   //     std::cout << "index : " << std::dec << std::setw( 4 ) << index << " value: " << std::hex <<  std::setw( 4 ) << (int)readbuffer[index] << "\n";
 
-       std::cout << std::dec << "bytes read: " << n << std::endl;
-
-       for( std::size_t i = 0; i < n ; ++i )
-           std::cout << std::dec << "byte number : " << i << " char value: " << std::hex << readbuffer[ i ] << " hex value: 0x" << std::hex << (int)readbuffer[ i ] << "\n";
-
-       if ( n == 0 )
-           break;
-   }
    std::cout.flush();
+
+   ::close( serial_port );
+
+}
+
+TEST(RTUTests, test_lowlevel_serial_error ) {
+
+    unsigned char buffer[ 42 ] {};
+    termios tty {};
+
+    // test on invalid fd
+    ASSERT_THROW( writeToDevice( -1, buffer, sizeof( buffer ) ) , std::runtime_error );
+    ASSERT_THROW( readFromDevice( -1, buffer, sizeof( buffer ) , &tty ), std::runtime_error );
+
 }
