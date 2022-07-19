@@ -59,12 +59,17 @@ namespace everest { namespace connection {
             bool is_valid() const;
     };
 
-        struct RTUConnectionConfiguration {
+       struct RTUConnectionConfiguration {
 
             std::string m_device = "/dev/ttyUSB0";
             // std::string m_baud = "19200"; //hardcoded for now
             unsigned int m_initial_wait_deciseconds = 50; // wait 5 secs for response
         };
+
+        ////////////////////////////////////////////////////////////////////////////////
+        //
+        // RTUConnection assumes that there is only *one* device on the serial line, there
+        // is not collision handling implemented.
 
         class RTUConnection : public Connection {
         private:
@@ -72,6 +77,10 @@ namespace everest { namespace connection {
             const RTUConnectionConfiguration m_config;
             int m_fd = -1;
             termios m_tty_config {};
+
+        protected:
+
+            RTUConnection() {}
 
         public:
 

@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-// #include <gmock/gmock.h>
+#include <gmock/gmock.h>
 
 #include <modbus/utils.hpp>
 
@@ -123,5 +123,61 @@ TEST(RTUTests, test_lowlevel_serial_error ) {
     // test on invalid fd
     ASSERT_THROW( writeToDevice( -1, buffer, sizeof( buffer ) ) , std::runtime_error );
     ASSERT_THROW( readFromDevice( -1, buffer, sizeof( buffer ) , &tty ), std::runtime_error );
+
+}
+
+// #include <modbus/modbus_client.hpp>
+
+#include <connection/connection.hpp>
+
+// This is a bit ugly, since the ctor of RTUConnection needs to init the connection.
+// So here mock the whole RTUConnection. Not nice, but works.
+
+class MockRTUConnection : public everest::connection::RTUConnection {
+
+public:
+
+    MockRTUConnection() {}
+
+    // MOCK_METHOD( int , make_connection, (), (override));
+    // MOCK_METHOD( int, close_connection, (), (override));
+    MOCK_METHOD( int, send_bytes, (const std::vector<uint8_t>& bytes_to_send), (override));
+    MOCK_METHOD( std::vector<uint8_t>, receive_bytes, (unsigned int number_of_bytes), (override));
+    MOCK_METHOD( bool , is_valid,(), ( const override ));
+
+};
+
+TEST(RTUClientTest, test_rtu_client ) {
+
+    using ::testing::Return;
+    using ::testing::_;
+    using ::testing::InSequence;
+
+    MockRTUConnection connection;
+
+    using DataVector = std::vector<unsigned char>;
+
+    // see test_crc16
+    DataVector outgoing_rtu_get_common {0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0x42 };
+
+    InSequence runTestInSequence;
+    // step one: construct outgoing request
+    EXPECT_CALL(connection, send_bytes ( outgoing_rtu_get_common ));
+
+    // This is a catch all call. Not what we want, need to send exactly the bytes above.
+    // EXPECT_CALL(connection, send_bytes ( _ ));
+
+    EXPECT_CALL(connection, receive_bytes ( 256 ))
+        .WillOnce( Return( outgoing_rtu_get_common ));
+
+    everest::modbus::ModbusRTUClient client ( connection ) ;
+
+    DataVector result = client.read_holding_register( 0x42, 40003, 68, false );
+
+    for ( std::size_t index = 0; index < result.size() ; ++index )
+        std::cout << "index : " << std::dec << index << " value : " << std::hex << (int) result[index] << "\n";
+
+    std::cout.flush();
+
 
 }

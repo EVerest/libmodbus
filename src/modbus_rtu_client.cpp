@@ -5,12 +5,23 @@
 
 using namespace everest::modbus;
 
-ModbusRTUClient::ModbusRTUClient(connection::Connection& conn_) : ModbusClient(conn_) {
-    // TBD;
-}
+ModbusRTUClient::ModbusRTUClient(connection::Connection& conn_) : ModbusClient(conn_) {}
 
-const std::vector<uint8_t> ModbusRTUClient::full_message_from_body(const std::vector<uint8_t>& body, uint16_t message_length, uint8_t unit_id) const {
+ModbusRTUClient::~ModbusRTUClient() {}
+
+// why the hell is conn private in this context??
+// ModbusRTUClient::~ModbusRTUClient() {
+//     conn.close_connection();
+// }
+
+
+const ModbusRTUClient::DataVector ModbusRTUClient::full_message_from_body(const DataVector& body, uint16_t message_length, MessageDataType unit_id) const {
     // TBD
+
+    // A Modbus "frame" consists of an Application Data Unit (ADU), which encapsulates a Protocol Data Unit (PDU):[8]
+
+    // ADU = Address + PDU + Error check.
+    // PDU = Function code + Data.
 
     // Modbus RTU frame format
 
@@ -23,6 +34,7 @@ const std::vector<uint8_t> ModbusRTUClient::full_message_from_body(const std::ve
     // CRC      16      Cyclic redundancy check
     // End      3.5 x 8     At least 3+1⁄2 character times (28 bits) of silence (mark condition) between frames
 
+    // According to this protocol's specification, a full Modbus frame (ADU) can have a PDU with a maximum size of 253 bytes.
 
     // TODO: Seems that the connection object has to implement the framing...?
 
@@ -47,4 +59,9 @@ const std::vector<uint8_t> ModbusRTUClient::full_message_from_body(const std::ve
     // be valid for the combined messages.
 
     return body;
+}
+
+std::uint16_t ModbusRTUClient::validate_response(const DataVector& response, const DataVector& request) const {
+
+    return 42;
 }

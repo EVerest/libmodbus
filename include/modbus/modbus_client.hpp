@@ -47,9 +47,14 @@ namespace everest { namespace modbus {
 
         class ModbusRTUClient : public ModbusClient {
             public:
-                ModbusRTUClient(connection::Connection& conn_);
-                virtual ~ModbusRTUClient() {};
-                const std::vector<uint8_t> full_message_from_body(const std::vector<uint8_t>& body, uint16_t message_length, uint8_t unit_id) const override;
+
+            using MessageDataType = std::uint8_t;
+            using DataVector = std::vector<MessageDataType>;
+
+            ModbusRTUClient(connection::Connection& conn_);
+            virtual ~ModbusRTUClient() override;
+            const DataVector full_message_from_body(const DataVector& body, uint16_t message_length, MessageDataType unit_id) const override;
+            uint16_t validate_response(const DataVector& response, const DataVector& request) const override;
         };
 
     } // namespace modbus
