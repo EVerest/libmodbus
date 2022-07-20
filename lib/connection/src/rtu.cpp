@@ -56,9 +56,9 @@ std::vector<uint8_t> RTUConnection::receive_bytes(unsigned int number_of_bytes) 
         throw std::runtime_error("attempt to read on invalid rtu connection.");
     }
 
-    std::vector<uint8_t> result;
-    result.reserve(number_of_bytes);// alloc space
-    result.resize(number_of_bytes); // default init the vector, adjust size.
+    std::vector<uint8_t> result(number_of_bytes);
+    // result.reserve(number_of_bytes);// alloc space
+    // result.resize(number_of_bytes); // default init the vector, adjust size.
     try {
         auto bytes_read = readFromDevice(m_fd, result.data(), number_of_bytes, &m_tty_config );
         EVLOG_debug << "read " << bytes_read << " on rtu connection." << std::endl;
