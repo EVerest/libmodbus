@@ -14,8 +14,65 @@ ModbusRTUClient::~ModbusRTUClient() {}
 //     conn.close_connection();
 // }
 
+#include <iostream>
+#include <iomanip>
+
+const ModbusRTUClient::DataVector ModbusRTUClient::read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes ) const {
+    std::cout << __PRETTY_FUNCTION__ << " start " << std::endl;
+
+    const std::size_t ModbusRTUQueryLength { 8 };
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+
+    union {
+        uint16_t value_16;
+        struct {
+            unsigned char low;
+            unsigned char hi;
+        } value_8;
+    }swapit;
+
+    DataVector outgoing_data;
+    outgoing_data.reserve( ModbusRTUQueryLength );
+    outgoing_data.resize( ModbusRTUQueryLength );
+
+    outgoing_data[ 0 ] = unit_id;
+    outgoing_data[ 1 ] = 0x03; // read holding register command
+
+    // register address
+    swapit.value_16 = first_register_address;
+    outgoing_data[ 2 ] = swapit.value_8.hi;
+    outgoing_data[ 3 ] = swapit.value_8.low;
+
+    // number of regs to read
+    swapit.value_16 = num_registers_to_read;
+    outgoing_data[ 4 ] = swapit.value_8.hi;
+    outgoing_data[ 5 ] = swapit.value_8.low;
+
+    // crc16 of payload
+    swapit.value_16 = everest::modbus::utils::calcCRC_16_ANSI(outgoing_data.data(), ModbusRTUQueryLength - 2 );
+    outgoing_data[ 6 ] = swapit.value_8.hi;
+    outgoing_data[ 7 ] = swapit.value_8.low;
+
+    conn.send_bytes(outgoing_data);
+    #else
+
+    static_assert( false , "implementaion done only for little endian" );
+
+    #endif
+
+    std::cout << __PRETTY_FUNCTION__ << " end " << std::endl;
+    return outgoing_data;
+
+}
 
 const ModbusRTUClient::DataVector ModbusRTUClient::full_message_from_body(const DataVector& body, uint16_t message_length, MessageDataType unit_id) const {
+
+    std::cout << __PRETTY_FUNCTION__ << " start " << std::endl;
+
+    std::cout << "body size: " << body.size() << std::endl;
+    for (int i = 0; i < body.size() ; i++) {
+        std::cout << "index : " << std::dec << i << " value hex : " << std::hex << std::setw( 4 ) << (int) body.at( i ) << " value dec " << std::dec << std::setw( 4 ) << (int) body.at( i ) << "\n";
+    }
     // TBD
 
     // A Modbus "frame" consists of an Application Data Unit (ADU), which encapsulates a Protocol Data Unit (PDU):[8]
@@ -58,6 +115,7 @@ const ModbusRTUClient::DataVector ModbusRTUClient::full_message_from_body(const 
     // previous message. This will set an error, as the value in the final CRC field will not
     // be valid for the combined messages.
 
+    std::cout << __PRETTY_FUNCTION__ << " end " << std::endl;
     return body;
 }
 

@@ -15,11 +15,14 @@ namespace everest { namespace modbus {
             public:
                 ModbusClient(connection::Connection& conn_);
                 virtual ~ModbusClient() = default;
-                const std::vector<uint8_t> read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes=true) const;
+            // read_holding_register needs to be virtual, since the rtu format differs from the ip/udp formats.
+                virtual const std::vector<uint8_t> read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes=true) const;
+
+        protected:
+
                 const virtual std::vector<uint8_t> full_message_from_body(const std::vector<uint8_t>& body, uint16_t message_length, uint8_t unit_id) const = 0;
                 virtual uint16_t validate_response(const std::vector<uint8_t>& response, const std::vector<uint8_t>& request) const = 0;
 
-            private:
                 ModbusClient(const ModbusClient&) = delete;
                 ModbusClient& operator=(const ModbusClient&) = delete;
                 connection::Connection& conn;
@@ -53,6 +56,7 @@ namespace everest { namespace modbus {
 
             ModbusRTUClient(connection::Connection& conn_);
             virtual ~ModbusRTUClient() override;
+            const DataVector read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes = true  ) const override;
             const DataVector full_message_from_body(const DataVector& body, uint16_t message_length, MessageDataType unit_id) const override;
             uint16_t validate_response(const DataVector& response, const DataVector& request) const override;
         };

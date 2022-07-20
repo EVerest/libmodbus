@@ -158,7 +158,17 @@ TEST(RTUClientTest, test_rtu_client ) {
     using DataVector = std::vector<unsigned char>;
 
     // see test_crc16
-    DataVector outgoing_rtu_get_common {0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0x42 };
+    DataVector outgoing_rtu_get_common {0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
+
+    // 0x2A Address   --> bsm default address is 42 / 0x2A
+    // 0x03 Function  --> read holding register
+    // 0x9C data      --> Starting address Hi --> 40004 / maps to datamodel 40003
+    // 0x44 data      --> Starting address Lo
+    // 0x00 data      --> Number of points Hi --> read 66 points, which is the payload length of "Standard SunSpec model with general information", model number 1
+    // 0x42 data      --> Number of points Lo
+    // 0xAD crc16     --> Error check
+    // 0x42 crc16     --> Error check
+
 
     InSequence runTestInSequence;
     // step one: construct outgoing request
@@ -167,12 +177,15 @@ TEST(RTUClientTest, test_rtu_client ) {
     // This is a catch all call. Not what we want, need to send exactly the bytes above.
     // EXPECT_CALL(connection, send_bytes ( _ ));
 
-    EXPECT_CALL(connection, receive_bytes ( 256 ))
-        .WillOnce( Return( outgoing_rtu_get_common ));
+    // EXPECT_CALL(connection, receive_bytes ( 256 ))
+    //     .WillOnce( Return( outgoing_rtu_get_common ));
 
     everest::modbus::ModbusRTUClient client ( connection ) ;
 
-    DataVector result = client.read_holding_register( 0x42, 40003, 68, false );
+    DataVector result = client.read_holding_register( 42 , // device address
+                                                      40004, // register address
+                                                      66  // number of regs to read
+        );
 
     for ( std::size_t index = 0; index < result.size() ; ++index )
         std::cout << "index : " << std::dec << index << " value : " << std::hex << (int) result[index] << "\n";
