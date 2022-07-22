@@ -62,7 +62,7 @@ ModbusRTUClient::~ModbusRTUClient() {}
 
 ModbusRTUClient::DataVector ModbusRTUClient::response_without_protocol_data( ModbusRTUClient::DataVector raw_response, std::size_t payload_length ) {
     // strip address and function bytes
-    return ModbusRTUClient::DataVector( &raw_response[ 2 ], &raw_response[ 2 + payload_length ] );
+    return ModbusRTUClient::DataVector( raw_response.cbegin() + 2 , raw_response.cbegin() + 2 + payload_length );
 
 }
 
