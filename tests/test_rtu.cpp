@@ -195,3 +195,20 @@ TEST(RTUClientTest, test_rtu_client ) {
 
 
 }
+
+TEST(RTUClientHelperTest, test_response_without_protocol_data ) {
+
+        // /dev/ttyUSB0:42[addr=40004] ->2A039C440042ADA5
+        //
+    using namespace everest::modbus;
+
+    // const ModbusRTUClient::MessageDataType raw_resrponse[] {0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
+    // const ModbusRTUClient::MessageDataType stripped_resrponse[] {0x9C,0x44,0x00,0x42};
+
+    ModbusRTUClient::DataVector dv_raw_resrponse {0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 } ;
+    ModbusRTUClient::DataVector dv_stripped_response {0x9C,0x44,0x00,0x42};
+
+    ASSERT_EQ( ModbusRTUClient::response_without_protocol_data( dv_raw_resrponse , 4 ),
+               dv_stripped_response );
+
+}

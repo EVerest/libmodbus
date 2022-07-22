@@ -61,6 +61,9 @@ namespace everest { namespace modbus {
             virtual ~ModbusRTUClient() override;
             const DataVector read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes = true  ) const override;
 
+            static DataVector response_without_protocol_data( ModbusRTUClient::DataVector raw_response, std::size_t payload_length );
+
+
         protected:
 
             const DataVector full_message_from_body(const DataVector& body, uint16_t message_length, MessageDataType unit_id) const override;

@@ -3,6 +3,8 @@
 #include <modbus/modbus_client.hpp>
 #include <modbus/utils.hpp>
 #include <string>
+#include "consts.hpp"
+
 
 using namespace everest::modbus;
 
@@ -58,6 +60,12 @@ ModbusRTUClient::~ModbusRTUClient() {}
 #include <iomanip>
 #include <limits>
 
+ModbusRTUClient::DataVector ModbusRTUClient::response_without_protocol_data( ModbusRTUClient::DataVector raw_response, std::size_t payload_length ) {
+    // strip address and function bytes
+    return ModbusRTUClient::DataVector( &raw_response[ 2 ], &raw_response[ 2 + payload_length ] );
+
+}
+
 const ModbusRTUClient::DataVector ModbusRTUClient::read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes ) const {
 
     // using namespace std::string_literals;
@@ -94,16 +102,39 @@ const ModbusRTUClient::DataVector ModbusRTUClient::read_holding_register(uint8_t
     outgoing_data[ 7 ] = swapit.value_8.low;
 
     conn.send_bytes(outgoing_data);
+
+    modbus::ModbusRTUClient::DataVector response = conn.receive_bytes( everest::modbus::consts::MAX_MESSAGE_SIZE );
     // TODO: check the number of bytes that can be read here
     // Verify: max modbus payload size unit8_t --> 256
     // + function code
     // + unit id
     // + crc16
-    auto response = conn.receive_bytes( std::numeric_limits<std::uint16_t>::max());
 
-    // uint16_t payload_size = validate_response(response, outgoing_data ) ;
+    // Frame description
+    // Slave Address Function Code Data CRC
+    // 1byte 1 byte 0 up to 252 byte(s) 2 bytes CRC Low CRCHi
+    // The maximum size of a MODBUS RTU frame is 256 byte    auto response = conn.receive_bytes( std::numeric_limits<std::uint16_t>::max());
 
-    return response;
+    // Finally, the ADU includes a PDU. The length of this PDU is still limited
+    // to 253 bytes for the standard protocol. The RTU ADU appears to be much
+    // simpler
+
+    // Unlike the more complex TCP/IP ADU, this ADU includes only two pieces of
+    // information in addition to the core PDU. First, an address is used to
+    // define which slave a PDU is intended for. On most networks, an address of
+    // 0 defines the “broadcast” address. That is, a master may send an output
+    // command to address 0 and all slaves should process the request but no
+    // slave should respond. Besides this address, a CRC is used to ensure the
+    // integrity of the data.
+
+
+
+       // Finally, the ADU includes a PDU. The length of this PDU is still limited to 253 bytes for the standard protocol.
+
+    // returns the payload size, so that we can return a DataVector that does not contain protocol data.
+    uint16_t payload_size = validate_response(response, outgoing_data ) ;
+
+    return return_only_registers_bytes ? response_without_protocol_data( response , payload_size ) : response;
 
     #else
 
