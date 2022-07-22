@@ -48,6 +48,9 @@ namespace everest { namespace modbus {
                 ~ModbusUDPClient() override = default;
         };
 
+        // TODO: create rtu messaage class
+        // TODO: create ABModbusClient
+
         class ModbusRTUClient : public ModbusClient {
             public:
 
