@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <connection/connection.hpp>
+#include <connection/serial_connection_helper.hpp>
 #include <modbus/utils.hpp>
+#include <consts.hpp>
 
 using namespace everest::modbus::utils;
 
@@ -66,11 +69,9 @@ TEST(RTUTests, test_crc16 ) {
 //
 // test serial connection helper stuff
 
-#include <connection/serial_connection_helper.hpp>
-
 using namespace everest::connection::serial_connection_helper;
 
-TEST(RTUTests, test_lowlevel_serial ) {
+TEST(RTUTestHardware, test_lowlevel_serial ) {
 
     ASSERT_THROW( openSerialDevice("/dev/does_not_exist" ), std::runtime_error );
 
@@ -93,18 +94,15 @@ TEST(RTUTests, test_lowlevel_serial ) {
    ASSERT_EQ( bytes_written , sizeof( request_common_model ) ); // the common model has this size on this device...
    // std::cout << "bytes written: " << bytes_written << std::endl;
 
-   // unsigned char readbuffer[ std::numeric_limits<std::uint16_t>::max() ];
-   const auto buffer_size { std::numeric_limits<std::uint16_t>::max() };
-   std::vector<unsigned char> readbuffer;
-   readbuffer.reserve( buffer_size );
+   std::vector<unsigned char> readbuffer( ::everest::modbus::consts::MAX_MESSAGE_SIZE );
    const unsigned char memoryMarker = 0x42;
-   readbuffer.resize( buffer_size , memoryMarker );
+   // readbuffer.resize( buffer_size , memoryMarker );
    ::size_t bytes_read = readFromDevice( serial_port, readbuffer.data(), readbuffer.size(), &tty_config );
 
    // std::cout << "bytes read: " << bytes_read << "\n";
    EXPECT_EQ( bytes_read , 137 ); // the common model has this size on this device...
    ASSERT_GT( bytes_read, 0 );    // does not make sense to continue testing if we dont read anything...
-   ASSERT_LT( bytes_read , buffer_size ); // make sure we dont read past the end.
+   ASSERT_LE( bytes_read , ::everest::modbus::consts::MAX_MESSAGE_SIZE ); // make sure we dont read past the end.
    ASSERT_EQ( readbuffer[ bytes_read ] , memoryMarker );
 
    // for ( ::size_t index = 0; index < bytes_read ; index++ )
@@ -115,7 +113,7 @@ TEST(RTUTests, test_lowlevel_serial ) {
 
 }
 
-TEST(RTUTests, test_lowlevel_serial_error ) {
+TEST(RTUTestHardware, test_lowlevel_serial_error ) {
 
     unsigned char buffer[ 42 ] {};
     termios tty {};
@@ -126,9 +124,6 @@ TEST(RTUTests, test_lowlevel_serial_error ) {
 
 }
 
-// #include <modbus/modbus_client.hpp>
-
-#include <connection/connection.hpp>
 
 // This is a bit ugly, since the ctor of RTUConnection needs to init the connection.
 // So here mock the whole RTUConnection. Not nice, but works.
@@ -158,8 +153,9 @@ TEST(RTUClientTest, test_rtu_client ) {
     using DataVector = std::vector<unsigned char>;
 
     // see test_crc16
-    DataVector outgoing_rtu_get_common {0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
-    DataVector incomming_rtu_response {  0x2A,0x03,0x84,0x42,0x41,0x55,0x45,0x52,0x20,0x45,0x6C,0x65,0x63,0x74,0x72,0x6F,0x6E,0x69,0x63,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x42,0x53,0x4D,0x2D,0x57,0x53,0x33,0x36,0x41,0x2D,0x48,0x30,0x31,0x2D,0x31,0x33,0x31,0x31,0x2D,0x30,0x30,0x30,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x31,0x2E,0x39,0x3A,0x33,0x32,0x43,0x41,0x3A,0x41,0x46,0x46,0x34,0x00,0x00,0x00,0x32,0x31,0x30,0x37,0x30,0x30,0x31,0x39,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x2A,0x80,0x00,0xc8,0x56 };
+    DataVector outgoing_rtu_get_common { 0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
+    DataVector incomming_rtu_response  { 0x2A,0x03,0x84,0x42,0x41,0x55,0x45,0x52,0x20,0x45,0x6C,0x65,0x63,0x74,0x72,0x6F,0x6E,0x69,0x63,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x42,0x53,0x4D,0x2D,0x57,0x53,0x33,0x36,0x41,0x2D,0x48,0x30,0x31,0x2D,0x31,0x33,0x31,0x31,0x2D,0x30,0x30,0x30,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x31,0x2E,0x39,0x3A,0x33,0x32,0x43,0x41,0x3A,0x41,0x46,0x46,0x34,0x00,0x00,0x00,0x32,0x31,0x30,0x37,0x30,0x30,0x31,0x39,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x2A,0x80,0x00,0xc8,0x56 };
+
 
     // 0x2A Address   --> bsm default address is 42 / 0x2A
     // 0x03 Function  --> read holding register
@@ -175,35 +171,30 @@ TEST(RTUClientTest, test_rtu_client ) {
     // step one: construct outgoing request
     EXPECT_CALL(connection, send_bytes ( outgoing_rtu_get_common ));
 
-    EXPECT_CALL(connection, receive_bytes ( std::numeric_limits<std::uint16_t>::max()))
+    // EXPECT_CALL(connection, receive_bytes ( std::numeric_limits<std::uint16_t>::max()))
+    EXPECT_CALL(connection, receive_bytes ( ::everest::modbus::consts::MAX_MESSAGE_SIZE ))
         .WillOnce( Return( incomming_rtu_response ));
 
     everest::modbus::ModbusRTUClient client ( connection ) ;
 
     DataVector result = client.read_holding_register( 42 , // device address
                                                       40004, // register address
-                                                      66  // number of regs to read
+                                                      66,  // number of regs to read
+                                                      false // for unknown reasons: if this is false, the raw message is returned.
         );
 
     ASSERT_EQ( result , incomming_rtu_response );
 
-    std::cout << "result size : " << result.size() << "\n";
-    for ( std::size_t index = 0; index < result.size() ; ++index )
-        std::cout << "index : " << std::dec << index << " value : " << std::hex << (int) result[index] << "\n";
-
-    std::cout.flush();
-
+    // std::cout << "result size : " << result.size() << "\n";
+    // for ( std::size_t index = 0; index < result.size() ; ++index )
+    //     std::cout << "index : " << std::dec << index << " value : " << std::hex << (int) result[index] << "\n";
+    // std::cout.flush();
 
 }
 
-TEST(RTUClientHelperTest, test_response_without_protocol_data ) {
+TEST(RTUClientTest, test_response_without_protocol_data ) {
 
-        // /dev/ttyUSB0:42[addr=40004] ->2A039C440042ADA5
-        //
     using namespace everest::modbus;
-
-    // const ModbusRTUClient::MessageDataType raw_resrponse[] {0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
-    // const ModbusRTUClient::MessageDataType stripped_resrponse[] {0x9C,0x44,0x00,0x42};
 
     ModbusRTUClient::DataVector dv_raw_resrponse {0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 } ;
     ModbusRTUClient::DataVector dv_stripped_response {0x9C,0x44,0x00,0x42};

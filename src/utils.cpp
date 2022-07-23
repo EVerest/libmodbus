@@ -9,7 +9,7 @@
 #include <modbus/utils.hpp>
 #include <modbus/exceptions.hpp>
 
-#include "consts.hpp"
+#include <consts.hpp>
 
 using namespace everest::modbus;
 
