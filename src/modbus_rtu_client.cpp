@@ -60,16 +60,16 @@ ModbusRTUClient::~ModbusRTUClient() {}
 #include <limits>
 
 ModbusRTUClient::DataVector ModbusRTUClient::response_without_protocol_data( ModbusRTUClient::DataVector raw_response, std::size_t payload_length ) {
-    // strip address and function bytes
-    return ModbusRTUClient::DataVector( raw_response.cbegin() + 2 , raw_response.cbegin() + 2 + payload_length );
+    // strip address and function bytes, but includes bytecount byte
+    // TODO: does it make sense to include the byte number?
+    return ModbusRTUClient::DataVector( raw_response.cbegin() + 2 , raw_response.cbegin() + 2 + payload_length + 1 );
 
 }
 
 const ModbusRTUClient::DataVector ModbusRTUClient::read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes ) const {
 
-    // using namespace std::string_literals;
-
     const std::size_t ModbusRTUQueryLength { 8 };
+
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
     union {
