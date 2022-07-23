@@ -153,9 +153,10 @@ const everest::modbus::ModbusRTUClient::DataVector ModbusRTUClient::full_message
 
 uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVector& response, const DataVector& request) const {
 
-    // it is a bit unclear what value this method should retrun (not documented).
-    // Educated guess: size of message's payload.
     using namespace std::string_literals;
+
+    if ( response.size() > ::everest::modbus::consts::MAX_MESSAGE_SIZE )
+        throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " response size " + std::to_string( response.size() ) + " is larger than max allowed message size " + std::to_string( ::everest::modbus::consts::MAX_MESSAGE_SIZE ) + " !");
 
     if ( response.at( 0 ) != request.at( 0 ) )
         throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " request / response unit id mismatch. " );
@@ -165,7 +166,6 @@ uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVector& r
 
     uint16_t result_size = response.at( 2 );
 
-    // TDOD: check if result size from response data fits into container size...
 
     return result_size;
 
