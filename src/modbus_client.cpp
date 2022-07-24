@@ -4,7 +4,7 @@
 
 #include <modbus/modbus_client.hpp>
 #include <modbus/utils.hpp>
-#include "consts.hpp"
+#include <consts.hpp>
 
 using namespace everest::modbus;
 
