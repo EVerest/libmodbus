@@ -59,28 +59,35 @@ ModbusRTUClient::~ModbusRTUClient() {}
 #include <iomanip>
 #include <limits>
 
-ModbusRTUClient::DataVector ModbusRTUClient::response_without_protocol_data( ModbusRTUClient::DataVector raw_response, std::size_t payload_length ) {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+
+union SwapIt {
+    uint16_t value_16;
+    struct {
+        unsigned char low;
+        unsigned char hi;
+    } value_8;
+} ;
+
+#endif
+
+
+DataVectorUint8 ModbusRTUClient::response_without_protocol_data( const DataVectorUint8& raw_response, std::size_t payload_length ) {
     // strip address and function bytes, but includes bytecount byte
     // TODO: does it make sense to include the byte number?
-    return ModbusRTUClient::DataVector( raw_response.cbegin() + 2 , raw_response.cbegin() + 2 + payload_length + 1 );
+    return DataVectorUint8( raw_response.cbegin() + 2 , raw_response.cbegin() + 2 + payload_length + 1 );
 
 }
 
-const ModbusRTUClient::DataVector ModbusRTUClient::read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes ) const {
+const DataVectorUint8 ModbusRTUClient::read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes ) const {
 
     const std::size_t ModbusRTUQueryLength { 8 };
 
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
-    union {
-        uint16_t value_16;
-        struct {
-            unsigned char low;
-            unsigned char hi;
-        } value_8;
-    } swapit;
+    SwapIt swapit;
 
-    DataVector outgoing_data( ModbusRTUQueryLength ); // capacity and size == ModbusRTUQueryLength
+    DataVectorUint8 outgoing_data( ModbusRTUQueryLength ); // capacity and size == ModbusRTUQueryLength
 
     outgoing_data[ 0 ] = unit_id;
     outgoing_data[ 1 ] = 0x03; // read holding register command
@@ -102,12 +109,13 @@ const ModbusRTUClient::DataVector ModbusRTUClient::read_holding_register(uint8_t
 
     conn.send_bytes(outgoing_data);
 
-    modbus::ModbusRTUClient::DataVector response = conn.receive_bytes( everest::modbus::consts::MAX_MESSAGE_SIZE );
+    modbus::DataVectorUint8 response = conn.receive_bytes( everest::modbus::consts::MAX_MESSAGE_SIZE );
     // TODO: check the number of bytes that can be read here
-    // Verify: max modbus payload size unit8_t --> 256
-    // + function code
-    // + unit id
-    // + crc16
+    // Verify: max modbus payload field size unit8_t --> unit8_t::max()
+    // + function code 1
+    // + unit id 1
+    // + crc16 2
+    // auto response = conn.receive_bytes( std::numeric_limits<std::uint16_t>::max());
 
     // Frame description
     // Slave Address Function Code Data CRC
@@ -143,7 +151,85 @@ const ModbusRTUClient::DataVector ModbusRTUClient::read_holding_register(uint8_t
 
 }
 
-const everest::modbus::ModbusRTUClient::DataVector ModbusRTUClient::full_message_from_body(const DataVector& body, uint16_t message_length, MessageDataType unit_id) const {
+DataVectorUint8 ModbusDataContainerUint16::get_payload_as_bigendian() const {
+
+    DataVectorUint8 result;
+    result.reserve( m_payload.size() * sizeof( DataVectorUint16::value_type ));
+
+    if ( m_byte_order == ByteOrder::BigEndian )
+        for( uint16_t value : m_payload ) {
+            SwapIt s { value };
+            result.push_back( s.value_8.hi );
+            result.push_back( s.value_8.low  );
+        }
+    else
+        for( uint16_t value : m_payload ) {
+            SwapIt s { value };
+            result.push_back( s.value_8.low );
+            result.push_back( s.value_8.hi  );
+        }
+
+    return result;
+}
+
+bool everest::modbus::ModbusRTUClient::writer_multiple_registers( uint8_t unit_id,
+                                                                  uint16_t first_register_address,
+                                                                  uint16_t num_registers_to_write,
+                                                                  const ModbusDataContainerUint16& payload
+    ) {
+
+    // TODO: write test for this!!!:
+
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+
+    using namespace std::string_literals;
+
+    if ( num_registers_to_write > 123 )
+        throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " only max 123 register allowed to be written, request was: " + std::to_string(num_registers_to_write) + " register" );
+
+    DataVectorUint8 outgoing_payload = payload.get_payload_as_bigendian();
+
+    std::size_t outgoing_data_size {
+        1 + // function code
+        2 + // starting address
+        2 + // quantity of registers
+        1 + // byte count
+        outgoing_payload.size() +
+        2   // crc16
+    };
+
+    DataVectorUint8 outgoing_data( outgoing_data_size );
+    SwapIt swapit;
+    outgoing_data[ 0 ] = 0x10; // function code "write multiple registers".
+
+    swapit.value_16 = first_register_address ;
+    outgoing_data[ 1 ] = swapit.value_8.hi;
+    outgoing_data[ 2 ] = swapit.value_8.low;
+
+    swapit.value_16 = num_registers_to_write ;
+    outgoing_data[ 3 ] = swapit.value_8.hi;
+    outgoing_data[ 4 ] = swapit.value_8.low;
+
+    outgoing_data[ 5 ] = num_registers_to_write;
+
+    outgoing_data.insert( outgoing_data.begin() + 6 , outgoing_payload.cbegin(), outgoing_payload.cend() );
+
+    swapit.value_16 = everest::modbus::utils::calcCRC_16_ANSI(outgoing_data.data(), outgoing_data_size - 2 ); // crc for the whole container, omitting the last two unit8 for the crc itself.
+    (*(outgoing_data.end() - 2)) = swapit.value_8.hi;
+    (*(outgoing_data.end() - 1)) = swapit.value_8.low;
+
+    return false;
+
+    #else
+
+    static_assert( false , "implementaion done only for little endian" );
+
+    #endif
+
+}
+
+
+const everest::modbus::DataVectorUint8 ModbusRTUClient::full_message_from_body(const DataVectorUint8& body, uint16_t message_length, MessageDataType unit_id) const {
 
     using namespace std::string_literals;
 
@@ -151,7 +237,7 @@ const everest::modbus::ModbusRTUClient::DataVector ModbusRTUClient::full_message
 
 }
 
-uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVector& response, const DataVector& request) const {
+uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVectorUint8& response, const DataVectorUint8& request) const {
 
     using namespace std::string_literals;
 
@@ -162,6 +248,7 @@ uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVector& r
         throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " request / response unit id mismatch. " );
 
     if ( response.at( 1 ) != request.at( 1 ) )
+        // TODO: analyse response error code
         throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " request / response function id mismatch. " );
 
     uint16_t result_size = response.at( 2 );
