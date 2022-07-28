@@ -8,6 +8,54 @@
 
 #include <stdexcept>
 
+int everest::connection::SerialDevice::openSerialDevice( const std::string device ){
+
+    return ::everest::connection::serial_connection_helper::openSerialDevice( device );
+
+}
+
+int everest::connection::SerialDevice::closeSerialDevice( int serial_port_fd ){
+
+    return ::everest::connection::serial_connection_helper::closeSerialDevice( serial_port_fd );
+
+}
+
+void everest::connection::SerialDevice::getConfiguration( int serial_port_fd, termios* tty ) {
+
+    return ::everest::connection::serial_connection_helper::getConfiguration( serial_port_fd, tty );
+
+}
+
+void everest::connection::SerialDevice::updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ ){
+
+    ::everest::connection::serial_connection_helper::updateConfiguration( tty );
+
+}
+void everest::connection::SerialDevice::updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds ){
+
+    ::everest::connection::serial_connection_helper::updateTimeoutConfiguration( tty , timeout_deciseconds );
+
+}
+void everest::connection::SerialDevice::configureDevice( int serial_port_fd, termios* tty ){
+
+    ::everest::connection::serial_connection_helper::configureDevice( serial_port_fd, tty );
+
+}
+::size_t everest::connection::SerialDevice::writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count ){
+
+    return ::everest::connection::serial_connection_helper::writeToDevice( serial_port_fd, buffer, count );
+
+}
+
+::size_t everest::connection::SerialDevice::readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config ) {
+
+    return ::everest::connection::serial_connection_helper::readFromDevice( serial_port_fd, buffer, count, tty_config );
+
+}
+
+
+
+
 int everest::connection::serial_connection_helper::openSerialDevice( const std::string device ) {
 
     // using namespace std::string_literals;

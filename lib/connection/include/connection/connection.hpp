@@ -8,6 +8,10 @@
 #include <string>
 #include <termios.h>
 
+// TODO: move this into a more beautiful place... the class SerialDevice is not a helper anymore.
+#include <connection/serial_connection_helper.hpp>
+
+
 namespace everest { namespace connection {
     class Connection {
         private:
@@ -16,6 +20,8 @@ namespace everest { namespace connection {
 
         protected:
             int connection_status;
+
+        ::everest::connection::SerialDevice m_serial_device;
 
         public:
             Connection() : connection_status(-1) {};
