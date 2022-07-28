@@ -4,6 +4,7 @@
 #include <modbus/utils.hpp>
 #include <string>
 #include <consts.hpp>
+#include <sstream>
 
 using namespace everest::modbus;
 
@@ -109,7 +110,7 @@ const DataVectorUint8 ModbusRTUClient::read_holding_register(uint8_t unit_id, ui
 
     conn.send_bytes(outgoing_data);
 
-    modbus::DataVectorUint8 response = conn.receive_bytes( everest::modbus::consts::MAX_MESSAGE_SIZE );
+    modbus::DataVectorUint8 response = conn.receive_bytes( max_adu_size() );
     // TODO: check the number of bytes that can be read here
     // Verify: max modbus payload field size unit8_t --> unit8_t::max()
     // + function code 1
@@ -156,7 +157,8 @@ DataVectorUint8 ModbusDataContainerUint16::get_payload_as_bigendian() const {
     DataVectorUint8 result;
     result.reserve( m_payload.size() * sizeof( DataVectorUint16::value_type ));
 
-    if ( m_byte_order == ByteOrder::BigEndian )
+    // if ( m_byte_order == ByteOrder::BigEndian )
+    if ( m_byte_order == ByteOrder::LittleEndian )
         for( uint16_t value : m_payload ) {
             SwapIt s { value };
             result.push_back( s.value_8.hi );
@@ -172,10 +174,11 @@ DataVectorUint8 ModbusDataContainerUint16::get_payload_as_bigendian() const {
     return result;
 }
 
-bool everest::modbus::ModbusRTUClient::writer_multiple_registers( uint8_t unit_id,
+DataVectorUint8 everest::modbus::ModbusRTUClient::writer_multiple_registers( uint8_t unit_id,
                                                                   uint16_t first_register_address,
                                                                   uint16_t num_registers_to_write,
-                                                                  const ModbusDataContainerUint16& payload
+                                                                  const ModbusDataContainerUint16& payload,
+                                                                  bool return_only_registers_bytes
     ) {
 
     // TODO: write test for this!!!:
@@ -190,6 +193,7 @@ bool everest::modbus::ModbusRTUClient::writer_multiple_registers( uint8_t unit_i
     DataVectorUint8 outgoing_payload = payload.get_payload_as_bigendian();
 
     std::size_t outgoing_data_size {
+        1 + // unit id
         1 + // function code
         2 + // starting address
         2 + // quantity of registers
@@ -200,25 +204,35 @@ bool everest::modbus::ModbusRTUClient::writer_multiple_registers( uint8_t unit_i
 
     DataVectorUint8 outgoing_data( outgoing_data_size );
     SwapIt swapit;
-    outgoing_data[ 0 ] = 0x10; // function code "write multiple registers".
+    outgoing_data[ 0 ] = unit_id;
+    outgoing_data[ 1 ] = 0x10; // function code "write multiple registers".
 
     swapit.value_16 = first_register_address ;
-    outgoing_data[ 1 ] = swapit.value_8.hi;
-    outgoing_data[ 2 ] = swapit.value_8.low;
+    outgoing_data[ 2 ] = swapit.value_8.hi;
+    outgoing_data[ 3 ] = swapit.value_8.low;
 
     swapit.value_16 = num_registers_to_write ;
-    outgoing_data[ 3 ] = swapit.value_8.hi;
-    outgoing_data[ 4 ] = swapit.value_8.low;
+    outgoing_data[ 4 ] = swapit.value_8.hi;
+    outgoing_data[ 5 ] = swapit.value_8.low;
 
-    outgoing_data[ 5 ] = num_registers_to_write;
+    outgoing_data[ 6 ] = num_registers_to_write * 2; // 16 bit register for now
 
-    outgoing_data.insert( outgoing_data.begin() + 6 , outgoing_payload.cbegin(), outgoing_payload.cend() );
+    auto it = outgoing_data.begin() + 7;
+    for ( auto data: outgoing_payload )
+        (*it++) = data;
 
     swapit.value_16 = everest::modbus::utils::calcCRC_16_ANSI(outgoing_data.data(), outgoing_data_size - 2 ); // crc for the whole container, omitting the last two unit8 for the crc itself.
+
     (*(outgoing_data.end() - 2)) = swapit.value_8.hi;
     (*(outgoing_data.end() - 1)) = swapit.value_8.low;
 
-    return false;
+    conn.send_bytes( outgoing_data );
+
+    modbus::DataVectorUint8 response = conn.receive_bytes( max_adu_size() );
+
+    uint16_t payload_size = validate_response(response, outgoing_data ) ;
+
+    return return_only_registers_bytes ? response_without_protocol_data( response , payload_size ) : response;
 
     #else
 
@@ -229,7 +243,7 @@ bool everest::modbus::ModbusRTUClient::writer_multiple_registers( uint8_t unit_i
 }
 
 
-const everest::modbus::DataVectorUint8 ModbusRTUClient::full_message_from_body(const DataVectorUint8& body, uint16_t message_length, MessageDataType unit_id) const {
+const everest::modbus::DataVectorUint8 ModbusRTUClient::full_message_from_body(const DataVectorUint8& body, uint16_t message_length, std::uint8_t unit_id) const {
 
     using namespace std::string_literals;
 
@@ -241,18 +255,58 @@ uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVectorUin
 
     using namespace std::string_literals;
 
-    if ( response.size() > ::everest::modbus::consts::MAX_MESSAGE_SIZE )
-        throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " response size " + std::to_string( response.size() ) + " is larger than max allowed message size " + std::to_string( ::everest::modbus::consts::MAX_MESSAGE_SIZE ) + " !");
+    if ( response.size() > max_adu_size() )
+        throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " response size " + std::to_string( response.size() ) + " is larger than max allowed message size " + std::to_string( max_adu_size() ) + " !");
 
+    // FIXME: What happens in case the request was a broadcast?
     if ( response.at( 0 ) != request.at( 0 ) )
         throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " request / response unit id mismatch. " );
 
+    if ( not ( (response.at( 1 ) & 0x80) == 0 ) ) {
+        uint8_t error_code { response.at( 1 ) };
+        std::stringstream ss;
+        std::string error_message;
+        switch ( error_code ) {
+        case 0x01:
+            error_message = "ILLEGAL FUNCTION";
+            break;
+        case 0x02:
+            error_message = "ILLEGAL DATA ADDRESS";
+            break;
+        case 0x03:
+            error_message = "ILLEGAL DATA VALUE";
+            break;
+        case 0x04:
+            error_message = "SERVER DEVICE FAILURE";
+            break;
+        case 0x05:
+            error_message = "ACKNOWLEDGE";
+            break;
+        case 0x06:
+            error_message = "SERVER DEVICE BUSY";
+            break;
+        // case 0x07: does not exist
+        case 0x08:
+            error_message = "MEMORY PARITY ERROR";
+            break;
+        // case 0x09: does not exist
+        case 0x0a:
+            error_message = "GATEWAY PATH UNAVAILABLE";
+            break;
+        case 0x0b:
+            error_message = "GATEWAY TARGET DEVICE FAILED TO RESPOND";
+            break;
+        default:
+            error_message = "UNKNOWN ERROR";
+        }
+        ss << __PRETTY_FUNCTION__ << "  response returned an error code: " << std::hex << error_code << " ( " << error_message << " ) ";
+        throw std::runtime_error( ss.str() );
+    }
+
     if ( response.at( 1 ) != request.at( 1 ) )
-        // TODO: analyse response error code
         throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " request / response function id mismatch. " );
 
     uint16_t result_size = response.at( 2 );
-
 
     return result_size;
 

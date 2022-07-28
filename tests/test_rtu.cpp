@@ -69,7 +69,7 @@ TEST(RTUTests, test_ModbusDataContainerUint16 ) {
 
     using namespace everest::modbus;
 
-    ModbusDataContainerUint16 big_endian    ( ByteOrder::BigEndian, { 0xff00, 0x4224 } );
+    ModbusDataContainerUint16 big_endian    ( ByteOrder::BigEndian,    { 0x00ff, 0x2442 } );
     ModbusDataContainerUint16 little_endian ( ByteOrder::LittleEndian, { 0xff00, 0x4224 } );
 
     {
@@ -84,10 +84,10 @@ TEST(RTUTests, test_ModbusDataContainerUint16 ) {
     {
         DataVectorUint8 res = little_endian.get_payload_as_bigendian();
         ASSERT_EQ( res.size() , little_endian.size() * 2 );// number of elements in container
-        ASSERT_EQ( res[0] , 0x00 );
-        ASSERT_EQ( res[1] , 0xff );
-        ASSERT_EQ( res[2] , 0x24 );
-        ASSERT_EQ( res[3] , 0x42 );
+        ASSERT_EQ( res[0] , 0xff );
+        ASSERT_EQ( res[1] , 0x00 );
+        ASSERT_EQ( res[2] , 0x42 );
+        ASSERT_EQ( res[3] , 0x24 );
     }
 }
 
@@ -120,7 +120,7 @@ TEST(RTUTestHardware, test_lowlevel_serial ) {
    ASSERT_EQ( bytes_written , sizeof( request_common_model ) ); // the common model has this size on this device...
    // std::cout << "bytes written: " << bytes_written << std::endl;
 
-   std::vector<unsigned char> readbuffer( ::everest::modbus::consts::MAX_MESSAGE_SIZE );
+   std::vector<unsigned char> readbuffer( ::everest::modbus::consts::rtu::MAX_ADU );
    const unsigned char memoryMarker = 0x42;
    // readbuffer.resize( buffer_size , memoryMarker );
    ::size_t bytes_read = readFromDevice( serial_port, readbuffer.data(), readbuffer.size(), &tty_config );
@@ -128,7 +128,7 @@ TEST(RTUTestHardware, test_lowlevel_serial ) {
    // std::cout << "bytes read: " << bytes_read << "\n";
    EXPECT_EQ( bytes_read , 137 ); // the common model has this size on this device...
    ASSERT_GT( bytes_read, 0 );    // does not make sense to continue testing if we dont read anything...
-   ASSERT_LE( bytes_read , ::everest::modbus::consts::MAX_MESSAGE_SIZE ); // make sure we dont read past the end.
+   ASSERT_LE( bytes_read , ::everest::modbus::consts::rtu::MAX_ADU ); // make sure we dont read past the end.
    ASSERT_EQ( readbuffer[ bytes_read ] , memoryMarker );
 
    // for ( ::size_t index = 0; index < bytes_read ; index++ )
@@ -197,8 +197,7 @@ TEST(RTUClientTest, test_rtu_client_read_holding_register ) {
     EXPECT_CALL(connection, send_bytes ( outgoing_rtu_get_common ))
         .Times(2);
 
-    // EXPECT_CALL(connection, receive_bytes ( std::numeric_limits<std::uint16_t>::max()))
-    EXPECT_CALL(connection, receive_bytes ( ::everest::modbus::consts::MAX_MESSAGE_SIZE ))
+    EXPECT_CALL(connection, receive_bytes ( ::everest::modbus::consts::rtu::MAX_ADU ))
         .WillOnce( Return( incomming_rtu_response ))
         .WillOnce( Return( incomming_rtu_response ));
 
@@ -239,8 +238,62 @@ TEST(RTUClientTest, test_rtu_client_write_multiple_register ) {
     using ::testing::Return;
     using ::testing::_;
 
-    FAIL();
+    using namespace ::everest::modbus;
 
+    // stolen from modbus spec
+    DataVectorUint8 outgoing_rtu_write_multiple_register { 0x2A, // unit id
+                                                           0x10, // write multiple register
+                                                           0x00, // start address hi
+                                                           0x01, // start address lo
+                                                           0x00, // quantity of registers hi
+                                                           0x02, // quantity of registers lo
+                                                           0x04, // byte count
+                                                           0x00, // reg0 hi
+                                                           0x0a, // reg0 lo
+                                                           0x01, // reg1 hi
+                                                           0x02, // reg1 lo
+
+                                                           0x1C,
+                                                           0xd4// crc16
+    };
+
+    ModbusDataContainerUint16 payload (ByteOrder::LittleEndian, { 0x000a, 0x0102 });
+
+    DataVectorUint8 outgoing_payload = payload.get_payload_as_bigendian();
+
+    DataVectorUint8 incomming_rtu_response           { 0x2A, // unit id
+                                                       0x10,
+                                                       0x00, // start address hi
+                                                       0x01, // start address lo
+                                                       0x00, // quantity of registers hi
+                                                       0x02, // quantity of registers lo
+
+                                                       0x00, // crc16
+                                                       0x00
+    };
+
+    MockRTUConnection connection;
+
+    // step one: construct outgoing request
+    EXPECT_CALL(connection, send_bytes ( outgoing_rtu_write_multiple_register ))
+        .Times(1);
+
+    EXPECT_CALL(connection, receive_bytes ( ::everest::modbus::consts::rtu::MAX_ADU ))
+        .WillOnce( Return( incomming_rtu_response ));
+
+    ModbusRTUClient client(connection);
+
+    DataVectorUint8 response = client.writer_multiple_registers( 0x2a, // unit id
+                                                                 0x0001, // start address
+                                                                 0x02, // number of register to write
+                                                                 payload, // errors will be reported by exception std::runtime_error
+                                                                 false // return full response
+        );
+
+    // hmm... our response does not contain a crc16 value.
+    ASSERT_EQ( response , incomming_rtu_response );
+
+    
 }
 
 
