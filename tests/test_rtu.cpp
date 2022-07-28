@@ -170,6 +170,9 @@ public:
 
 TEST(RTUClientTest, test_rtu_client_read_holding_register ) {
 
+    // write a sunspec get_common request and receive the response
+    // this is done twice to check the "unpacking" of the response ( stripping the protocol part from the response data ).
+
     using ::testing::Return;
     using ::testing::_;
 
@@ -235,6 +238,9 @@ TEST(RTUClientTest, test_rtu_client_read_holding_register ) {
 
 TEST(RTUClientTest, test_rtu_client_write_multiple_register ) {
 
+    // test the writer_multiple_registers
+    // TODO: the mocking is on a to high level. Will have to make the serial_connection_helper stuff mockable.
+
     using ::testing::Return;
     using ::testing::_;
 
@@ -258,8 +264,6 @@ TEST(RTUClientTest, test_rtu_client_write_multiple_register ) {
     };
 
     ModbusDataContainerUint16 payload (ByteOrder::LittleEndian, { 0x000a, 0x0102 });
-
-    DataVectorUint8 outgoing_payload = payload.get_payload_as_bigendian();
 
     DataVectorUint8 incomming_rtu_response           { 0x2A, // unit id
                                                        0x10,
@@ -293,11 +297,64 @@ TEST(RTUClientTest, test_rtu_client_write_multiple_register ) {
     // hmm... our response does not contain a crc16 value.
     ASSERT_EQ( response , incomming_rtu_response );
 
-    
+}
+
+TEST(RTUClientTest, test_rtu_client_error_responses ) {
+
+    // we "send" a valid request "outside", and have a error response return.
+    // we test if an exception (std::runtime_error) is thrown on error responsess.
+
+    using ::testing::Return;
+    using ::testing::_;
+
+    using namespace ::everest::modbus;
+
+    // stolen from modbus spec
+    DataVectorUint8 outgoing_rtu_write_multiple_register { 0x2A, // unit id
+                                                           0x10, // write multiple register
+                                                           0x00, // start address hi
+                                                           0x01, // start address lo
+                                                           0x00, // quantity of registers hi
+                                                           0x02, // quantity of registers lo
+                                                           0x04, // byte count
+                                                           0x00, // reg0 hi
+                                                           0x0a, // reg0 lo
+                                                           0x01, // reg1 hi
+                                                           0x02, // reg1 lo
+
+                                                           0x1C,
+                                                           0xd4// crc16
+    };
+
+    DataVectorUint8 incomming_rtu_error_response           { 0x2A, // unit id
+                                                             0x90, // error code for 0x10 (write multiple register)
+                                                             0x04 }; // some valid error exception code.
+
+    ModbusDataContainerUint16 payload (ByteOrder::LittleEndian, { 0x000a, 0x0102 });
+
+    MockRTUConnection connection;
+
+    // step one: construct outgoing request
+    EXPECT_CALL(connection, send_bytes ( outgoing_rtu_write_multiple_register ))
+        .Times(1);
+
+    EXPECT_CALL(connection, receive_bytes ( ::everest::modbus::consts::rtu::MAX_ADU ))
+        .WillOnce( Return( incomming_rtu_error_response ));
+
+    ModbusRTUClient client(connection);
+
+    ASSERT_THROW( client.writer_multiple_registers( 0x2a, // unit id
+                                      0x0001, // start address
+                                      0x02, // number of register to write
+                                      payload, // errors will be reported by exception std::runtime_error
+                                      false // return full response
+                      ) , std::runtime_error );
 }
 
 
 TEST(RTUClientTest, test_response_without_protocol_data ) {
+
+    // test the unpacking of response data ( stripping the protocol part from the response data )
 
     using namespace everest::modbus;
 

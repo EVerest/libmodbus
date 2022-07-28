@@ -94,8 +94,11 @@ namespace everest { namespace modbus {
 
             ModbusRTUClient(connection::Connection& conn_);
             virtual ~ModbusRTUClient() override;
+
+            // throws std::runtime_error
             const DataVectorUint8 read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes = true  ) const override;
 
+            // throws std::runtime_error
             DataVectorUint8 writer_multiple_registers( uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_write , const ModbusDataContainerUint16& payload, bool return_only_registers_bytes ); // errors will be reported by exception std::runtime_error
 
 

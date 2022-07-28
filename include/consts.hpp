@@ -15,6 +15,7 @@ namespace everest { namespace modbus { namespace consts {
             // see: MODBUS APPLICATION PROTOCOL SPECIFICATION V1.1b3
             // page 3 and following.
 
+            // MODBUS/RTU specific constants
             namespace rtu {
                 constexpr uint16_t MAX_ADU = 256;
                 constexpr uint16_t MAX_PDU = 253;

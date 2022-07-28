@@ -5,6 +5,10 @@
 #include <string>
 #include <consts.hpp>
 #include <sstream>
+// #include <iostream>
+#include <iomanip>
+#include <limits>
+
 
 using namespace everest::modbus;
 
@@ -33,32 +37,6 @@ ModbusRTUClient::~ModbusRTUClient() {}
 
 //     // According to this protocol's specification, a full Modbus frame (ADU) can have a PDU with a maximum size of 253 bytes.
 
-//     // TODO: Seems that the connection object has to implement the framing...?
-
-//     // RTU Framing
-//     // In RTU mode, messages start with a silent interval of at least 3.5 character times.
-//     // This is most easily implemented as a multiple of character times at the baud rate
-//     // that is being used on the network (shown as T1–T2–T3–T4 in the figure below).
-//     // The first field then transmitted is the device address.
-//     // The allowable characters transmitted for all fields are hexadecimal 0–9, A–F.
-//     // Networked devices monitor the network bus continuously, including during the
-//     // ‘silent’ intervals. When the first field (the address field) is received, each device
-//     // decodes it to find out if it is the addressed device.
-//     // Following the last transmitted character, a similar interval of at least 3.5 character
-//     // times marks the end of the message. A new message can begin after this interval.
-//     // The entire message frame must be transmitted as a continuous stream. If a silent
-//     // interval of more than 1.5 character times occurs before completion of the frame,
-//     // the receiving device flushes the incomplete message and assumes that the next
-//     // byte will be the address field of a new message.
-//     // Similarly, if a new message begins earlier than 3.5 character times following a
-//     // previous message, the receiving device will consider it a continuation of the
-//     // previous message. This will set an error, as the value in the final CRC field will not
-//     // be valid for the combined messages.
-
-
-#include <iostream>
-#include <iomanip>
-#include <limits>
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
@@ -111,35 +89,7 @@ const DataVectorUint8 ModbusRTUClient::read_holding_register(uint8_t unit_id, ui
     conn.send_bytes(outgoing_data);
 
     modbus::DataVectorUint8 response = conn.receive_bytes( max_adu_size() );
-    // TODO: check the number of bytes that can be read here
-    // Verify: max modbus payload field size unit8_t --> unit8_t::max()
-    // + function code 1
-    // + unit id 1
-    // + crc16 2
-    // auto response = conn.receive_bytes( std::numeric_limits<std::uint16_t>::max());
 
-    // Frame description
-    // Slave Address Function Code Data CRC
-    // 1byte 1 byte 0 up to 252 byte(s) 2 bytes CRC Low CRCHi
-    // The maximum size of a MODBUS RTU frame is 256 byte    auto response = conn.receive_bytes( std::numeric_limits<std::uint16_t>::max());
-
-    // Finally, the ADU includes a PDU. The length of this PDU is still limited
-    // to 253 bytes for the standard protocol. The RTU ADU appears to be much
-    // simpler
-
-    // Unlike the more complex TCP/IP ADU, this ADU includes only two pieces of
-    // information in addition to the core PDU. First, an address is used to
-    // define which slave a PDU is intended for. On most networks, an address of
-    // 0 defines the “broadcast” address. That is, a master may send an output
-    // command to address 0 and all slaves should process the request but no
-    // slave should respond. Besides this address, a CRC is used to ensure the
-    // integrity of the data.
-
-
-
-       // Finally, the ADU includes a PDU. The length of this PDU is still limited to 253 bytes for the standard protocol.
-
-    // returns the payload size, so that we can return a DataVector that does not contain protocol data.
     uint16_t payload_size = validate_response(response, outgoing_data ) ;
 
     return return_only_registers_bytes ? response_without_protocol_data( response , payload_size ) : response;
@@ -263,10 +213,10 @@ uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVectorUin
         throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " request / response unit id mismatch. " );
 
     if ( not ( (response.at( 1 ) & 0x80) == 0 ) ) {
-        uint8_t error_code { response.at( 1 ) };
+        uint8_t exception_code = response.at( 2 );
         std::stringstream ss;
         std::string error_message;
-        switch ( error_code ) {
+        switch ( exception_code ) {
         case 0x01:
             error_message = "ILLEGAL FUNCTION";
             break;
@@ -299,7 +249,7 @@ uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVectorUin
         default:
             error_message = "UNKNOWN ERROR";
         }
-        ss << __PRETTY_FUNCTION__ << "  response returned an error code: " << std::hex << error_code << " ( " << error_message << " ) ";
+        ss << __PRETTY_FUNCTION__ << "  response returned an error code: " << std::hex << (int)exception_code << " ( " << error_message << " ) ";
         throw std::runtime_error( ss.str() );
     }
 
