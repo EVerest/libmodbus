@@ -9,7 +9,8 @@ include_directories(${PROJECT_SOURCE_DIR}/lib/connection/)
 find_package(EDM REQUIRED)
 
 # specify the C++ standard
-set(CMAKE_CXX_STANDARD 14)
+# set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 option(BUILD_EXAMPLES "Build example programs" OFF)
