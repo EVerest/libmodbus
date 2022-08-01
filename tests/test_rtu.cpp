@@ -6,6 +6,8 @@
 #include <modbus/utils.hpp>
 #include <consts.hpp>
 
+#include <algorithm>
+
 using namespace everest::modbus::utils;
 
 TEST(RTUTests, test_crc16 ) {
@@ -95,19 +97,22 @@ TEST(RTUTests, test_ModbusDataContainerUint16 ) {
 //
 // test serial connection helper stuff
 
-using namespace everest::connection::serial_connection_helper;
 
 TEST(RTUTestHardware, test_lowlevel_serial ) {
 
-    ASSERT_THROW( openSerialDevice("/dev/does_not_exist" ), std::runtime_error );
+    using namespace everest::connection;
+
+    SerialDevice serial_device;
+
+    ASSERT_THROW( serial_device.openSerialDevice("/dev/does_not_exist" ), std::runtime_error );
 
     // PLAN: this will be moved into a method in the connection object
-    int serial_port = openSerialDevice("/dev/ttyUSB0" ); // throws std::runtime_error if open fails
+    int serial_port = serial_device.openSerialDevice("/dev/ttyUSB0" ); // throws std::runtime_error if open fails
     termios tty_config;
-    getConfiguration( serial_port, &tty_config );
-    updateConfiguration( &tty_config /*, options */ );
-    updateTimeoutConfiguration( &tty_config, 50 );
-    configureDevice( serial_port, &tty_config );
+    serial_device.getConfiguration( serial_port, &tty_config );
+    serial_device.updateConfiguration( &tty_config /*, options */ );
+    serial_device.updateTimeoutConfiguration( &tty_config, 50 );
+    serial_device.configureDevice( serial_port, &tty_config );
 
     // Test starts here.
     // test data stolen from:
@@ -115,7 +120,7 @@ TEST(RTUTestHardware, test_lowlevel_serial ) {
    const unsigned char request_common_model[] { 0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
 
    // writeToDevice goes to connection object?
-   auto bytes_written = writeToDevice( serial_port, request_common_model, sizeof( request_common_model ));
+   auto bytes_written = serial_device.writeToDevice( serial_port, request_common_model, sizeof( request_common_model ));
 
    ASSERT_EQ( bytes_written , sizeof( request_common_model ) ); // the common model has this size on this device...
    // std::cout << "bytes written: " << bytes_written << std::endl;
@@ -123,11 +128,11 @@ TEST(RTUTestHardware, test_lowlevel_serial ) {
    std::vector<unsigned char> readbuffer( ::everest::modbus::consts::rtu::MAX_ADU );
    const unsigned char memoryMarker = 0x42;
    // readbuffer.resize( buffer_size , memoryMarker );
-   ::size_t bytes_read = readFromDevice( serial_port, readbuffer.data(), readbuffer.size(), &tty_config );
+   ::size_t bytes_read = serial_device.readFromDevice( serial_port, readbuffer.data(), readbuffer.size(), &tty_config );
 
    // std::cout << "bytes read: " << bytes_read << "\n";
-   EXPECT_EQ( bytes_read , 137 ); // the common model has this size on this device...
-   ASSERT_GT( bytes_read, 0 );    // does not make sense to continue testing if we dont read anything...
+   EXPECT_EQ( bytes_read , (unsigned)137 ); // the common model has this size on this device...
+   ASSERT_GT( bytes_read, (unsigned)0 );    // does not make sense to continue testing if we dont read anything...
    ASSERT_LE( bytes_read , ::everest::modbus::consts::rtu::MAX_ADU ); // make sure we dont read past the end.
    ASSERT_EQ( readbuffer[ bytes_read ] , memoryMarker );
 
@@ -141,12 +146,15 @@ TEST(RTUTestHardware, test_lowlevel_serial ) {
 
 TEST(RTUTestHardware, test_lowlevel_serial_error ) {
 
+    using namespace everest::connection;
+
+    SerialDevice serial_device;
     unsigned char buffer[ 42 ] {};
     termios tty {};
 
     // test on invalid fd
-    ASSERT_THROW( writeToDevice( -1, buffer, sizeof( buffer ) ) , std::runtime_error );
-    ASSERT_THROW( readFromDevice( -1, buffer, sizeof( buffer ) , &tty ), std::runtime_error );
+    ASSERT_THROW( serial_device.writeToDevice( -1, buffer, sizeof( buffer ) ) , std::runtime_error );
+    ASSERT_THROW( serial_device.readFromDevice( -1, buffer, sizeof( buffer ) , &tty ), std::runtime_error );
 
 }
 
@@ -154,17 +162,33 @@ TEST(RTUTestHardware, test_lowlevel_serial_error ) {
 // This is a bit ugly, since the ctor of RTUConnection needs to init the connection.
 // So here mock the whole RTUConnection. Not nice, but works.
 
-class MockRTUConnection : public everest::connection::RTUConnection {
+// class MockRTUConnection : public everest::connection::RTUConnection {
+
+// public:
+
+//     MockRTUConnection() :
+//         RTUConnection({}
+
+//     // When changing the test(s) that use this mock: this is a "coarse" mock, it does not test the connection layer.
+//     // Todo so, the functions (esp readFromDEvice,writeToDevice) in serial_connection_helper need to be mocked.
+//     // Hint: https://google.github.io/googletest/gmock_faq.html "My code calls a static/global function. Can I mock it?"
+//     MOCK_METHOD( int, send_bytes, (const std::vector<uint8_t>& bytes_to_send), (override));
+//     MOCK_METHOD( std::vector<uint8_t>, receive_bytes, (unsigned int number_of_bytes), (override));
+
+// };
+
+class MockSerialDevice : public ::everest::connection::SerialDevice {
 
 public:
 
-    MockRTUConnection() {}
-
-    // When changing the test(s) that use this mock: this is a "coarse" mock, it does not test the connection layer.
-    // Todo so, the functions (esp readFromDEvice,writeToDevice) in serial_connection_helper need to be mocked.
-    // Hint: https://google.github.io/googletest/gmock_faq.html "My code calls a static/global function. Can I mock it?"
-    MOCK_METHOD( int, send_bytes, (const std::vector<uint8_t>& bytes_to_send), (override));
-    MOCK_METHOD( std::vector<uint8_t>, receive_bytes, (unsigned int number_of_bytes), (override));
+    MOCK_METHOD( int, openSerialDevice, ( const std::string device ));
+    MOCK_METHOD( int, closeSerialDevice, ( int serial_port_fd ));
+    MOCK_METHOD( void, getConfiguration, ( int serial_port_fd, termios* tty ));
+    MOCK_METHOD( void , updateConfiguration, ( termios* tty ));
+    MOCK_METHOD( void, updateTimeoutConfiguration, ( termios* tty , unsigned int timeout_deciseconds ));
+    MOCK_METHOD( void , configureDevice, ( int serial_port_fd, termios* tty ));
+    MOCK_METHOD( ::size_t , writeToDevice, ( int serial_port_fd, const unsigned char* const buffer, ::size_t count ));
+    MOCK_METHOD( ::size_t , readFromDevice, ( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config ));
 
 };
 
@@ -173,19 +197,25 @@ TEST(RTUClientTest, test_rtu_client_read_holding_register ) {
     // write a sunspec get_common request and receive the response
     // this is done twice to check the "unpacking" of the response ( stripping the protocol part from the response data ).
 
-    using ::testing::Return;
-    using ::testing::_;
+    using namespace ::everest::connection;
 
-    MockRTUConnection connection;
+    using ::testing::_; // this is the wildcard parameter
+    using ::testing::Return;
+    using ::testing::DoAll;
+    using ::testing::SetArrayArgument;
+    using ::testing::ElementsAreArray;
+    using ::testing::Args;
+    using ::testing::NiceMock;
+
+    RTUConnectionConfiguration config;
+    // https://github.com/google/googletest/blob/main/docs/gmock_cook_book.md#knowing-when-to-expect
+    // We dont want warnings about unineresting calls, so we use the NiceMock here
+    NiceMock<MockSerialDevice> serial_device;
 
     using DataVector = std::vector<unsigned char>;
 
+    // outgoing message:
     // see test_crc16
-    DataVector outgoing_rtu_get_common          { 0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
-    DataVector incomming_rtu_response           { 0x2A,0x03,0x84,0x42,0x41,0x55,0x45,0x52,0x20,0x45,0x6C,0x65,0x63,0x74,0x72,0x6F,0x6E,0x69,0x63,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x42,0x53,0x4D,0x2D,0x57,0x53,0x33,0x36,0x41,0x2D,0x48,0x30,0x31,0x2D,0x31,0x33,0x31,0x31,0x2D,0x30,0x30,0x30,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x31,0x2E,0x39,0x3A,0x33,0x32,0x43,0x41,0x3A,0x41,0x46,0x46,0x34,0x00,0x00,0x00,0x32,0x31,0x30,0x37,0x30,0x30,0x31,0x39,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x2A,0x80,0x00,0xc8,0x56 };
-    DataVector stripped_incomming_rtu_response  {           0x84,0x42,0x41,0x55,0x45,0x52,0x20,0x45,0x6C,0x65,0x63,0x74,0x72,0x6F,0x6E,0x69,0x63,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x42,0x53,0x4D,0x2D,0x57,0x53,0x33,0x36,0x41,0x2D,0x48,0x30,0x31,0x2D,0x31,0x33,0x31,0x31,0x2D,0x30,0x30,0x30,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x31,0x2E,0x39,0x3A,0x33,0x32,0x43,0x41,0x3A,0x41,0x46,0x46,0x34,0x00,0x00,0x00,0x32,0x31,0x30,0x37,0x30,0x30,0x31,0x39,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x2A,0x80,0x00           };
-
-
     // 0x2A Address   --> bsm default address is 42 / 0x2A
     // 0x03 Function  --> read holding register
     // 0x9C data      --> Starting address Hi --> 40004 / maps to datamodel 40003
@@ -194,15 +224,30 @@ TEST(RTUClientTest, test_rtu_client_read_holding_register ) {
     // 0x42 data      --> Number of points Lo
     // 0xAD crc16     --> Error check
     // 0x42 crc16     --> Error check
+    DataVector outgoing_rtu_get_common          { 0x2A,0x03,0x9C,0x44,0x00,0x42,0xAD,0xA5 };
+    DataVector incomming_rtu_response           { 0x2A,0x03,0x84,0x42,0x41,0x55,0x45,0x52,0x20,0x45,0x6C,0x65,0x63,0x74,0x72,0x6F,0x6E,0x69,0x63,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x42,0x53,0x4D,0x2D,0x57,0x53,0x33,0x36,0x41,0x2D,0x48,0x30,0x31,0x2D,0x31,0x33,0x31,0x31,0x2D,0x30,0x30,0x30,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x31,0x2E,0x39,0x3A,0x33,0x32,0x43,0x41,0x3A,0x41,0x46,0x46,0x34,0x00,0x00,0x00,0x32,0x31,0x30,0x37,0x30,0x30,0x31,0x39,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x2A,0x80,0x00,0xc8,0x56 };
+    DataVector stripped_incomming_rtu_response  {           0x84,0x42,0x41,0x55,0x45,0x52,0x20,0x45,0x6C,0x65,0x63,0x74,0x72,0x6F,0x6E,0x69,0x63,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x42,0x53,0x4D,0x2D,0x57,0x53,0x33,0x36,0x41,0x2D,0x48,0x30,0x31,0x2D,0x31,0x33,0x31,0x31,0x2D,0x30,0x30,0x30,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x31,0x2E,0x39,0x3A,0x33,0x32,0x43,0x41,0x3A,0x41,0x46,0x46,0x34,0x00,0x00,0x00,0x32,0x31,0x30,0x37,0x30,0x30,0x31,0x39,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x2A,0x80,0x00           };
+
+    // https://google.github.io/googletest/reference/actions.html
+    // https://google.github.io/googletest/reference/matchers.html
+
+    EXPECT_CALL( serial_device, readFromDevice( _ , _ , _ , _ ))
+        .WillOnce( DoAll( SetArrayArgument<1>( incomming_rtu_response.begin(), incomming_rtu_response.end() ) ,
+                          Return( incomming_rtu_response.size() )))
+        .WillOnce( DoAll( SetArrayArgument<1>( incomming_rtu_response.begin(), incomming_rtu_response.end() ) ,
+                          Return( incomming_rtu_response.size() )));
+
+    EXPECT_CALL(
+        serial_device,
+        writeToDevice( _ ,
+                       _ , // c style array here.
+                       _ )  )
+        .With( ::testing::Args<1,2>(ElementsAreArray( outgoing_rtu_get_common ))) // Seems that c style arrays have their own style of matching parameters
+        .WillOnce( Return( outgoing_rtu_get_common.size() ))
+        .WillOnce( Return( outgoing_rtu_get_common.size() ));
 
 
-    // step one: construct outgoing request
-    EXPECT_CALL(connection, send_bytes ( outgoing_rtu_get_common ))
-        .Times(2);
-
-    EXPECT_CALL(connection, receive_bytes ( ::everest::modbus::consts::rtu::MAX_ADU ))
-        .WillOnce( Return( incomming_rtu_response ))
-        .WillOnce( Return( incomming_rtu_response ));
+    RTUConnection connection( config , serial_device );
 
     everest::modbus::ModbusRTUClient client ( connection ) ;
     {
@@ -212,11 +257,13 @@ TEST(RTUClientTest, test_rtu_client_read_holding_register ) {
                                                           false // for unknown reasons: if this is false, the raw message is returned.
             );
 
+        // a note on comparison: the raw result has the size of the max adu of a rtu message, which in this case is larger than the size of incomming_rtu_response
+        // result.resize( incomming_rtu_response.size() ); // resize, otherwise we would have to compare items "by hand"
         ASSERT_EQ( result , incomming_rtu_response );
     }
 
 
-   {
+    {
         DataVector result = client.read_holding_register( 42 , // device address
                                                           40004, // register address
                                                           66,  // number of regs to read
@@ -228,23 +275,22 @@ TEST(RTUClientTest, test_rtu_client_read_holding_register ) {
 
     }
 
-    // std::cout << "result size : " << result.size() << "\n";
-    // for ( std::size_t index = 0; index < result.size() ; ++index )
-    //     std::cout << "index : " << std::dec << index << " value : " << std::hex << (int) result[index] << "\n";
-    // std::cout.flush();
-
 }
-
 
 TEST(RTUClientTest, test_rtu_client_write_multiple_register ) {
 
     // test the writer_multiple_registers
     // TODO: the mocking is on a to high level. Will have to make the serial_connection_helper stuff mockable.
 
+    using namespace ::everest::modbus;
+    using namespace ::everest::connection;
+
     using ::testing::Return;
     using ::testing::_;
-
-    using namespace ::everest::modbus;
+    using ::testing::NiceMock;
+    using ::testing::SetArrayArgument;
+    using ::testing::DoAll;
+    using ::testing::ElementsAreArray;
 
     // stolen from modbus spec
     DataVectorUint8 outgoing_rtu_write_multiple_register { 0x2A, // unit id
@@ -271,19 +317,26 @@ TEST(RTUClientTest, test_rtu_client_write_multiple_register ) {
                                                        0x01, // start address lo
                                                        0x00, // quantity of registers hi
                                                        0x02, // quantity of registers lo
-
-                                                       0x00, // crc16
-                                                       0x00
+                                                       0x16, // crc16
+                                                       0x13
     };
 
-    MockRTUConnection connection;
+    NiceMock<MockSerialDevice> serial_device;
+    RTUConnectionConfiguration config;
 
-    // step one: construct outgoing request
-    EXPECT_CALL(connection, send_bytes ( outgoing_rtu_write_multiple_register ))
-        .Times(1);
+    EXPECT_CALL( serial_device, readFromDevice( _ , _ , _ , _ ))
+        .WillOnce( DoAll( SetArrayArgument<1>( incomming_rtu_response.begin(), incomming_rtu_response.end() ) ,
+                          Return( incomming_rtu_response.size() )));
 
-    EXPECT_CALL(connection, receive_bytes ( ::everest::modbus::consts::rtu::MAX_ADU ))
-        .WillOnce( Return( incomming_rtu_response ));
+    EXPECT_CALL(
+        serial_device,
+        writeToDevice( _ ,
+                       _ , // c style array here.
+                       _ )  )
+        .With( ::testing::Args<1,2>(ElementsAreArray( outgoing_rtu_write_multiple_register ))) // Seems that c style arrays have their own style of matching parameters
+        .WillOnce( Return( outgoing_rtu_write_multiple_register.size() ));
+
+    RTUConnection connection( config, serial_device );
 
     ModbusRTUClient client(connection);
 
@@ -294,20 +347,92 @@ TEST(RTUClientTest, test_rtu_client_write_multiple_register ) {
                                                                  false // return full response
         );
 
-    // hmm... our response does not contain a crc16 value.
     ASSERT_EQ( response , incomming_rtu_response );
 
 }
+
+TEST(RTUClientTest, test_rtu_client_crc_error ) {
+
+    // test if an exception is thrown on crc error
+
+    using namespace ::everest::modbus;
+    using namespace ::everest::connection;
+
+    using ::testing::Return;
+    using ::testing::_;
+    using ::testing::NiceMock;
+    using ::testing::SetArrayArgument;
+    using ::testing::DoAll;
+    using ::testing::ElementsAreArray;
+
+    // stolen from modbus spec, write a writer_multiple_registers request to the device
+    DataVectorUint8 outgoing_rtu_write_multiple_register { 0x2A, // unit id
+                                                           0x10, // write multiple register
+                                                           0x00, // start address hi
+                                                           0x01, // start address lo
+                                                           0x00, // quantity of registers hi
+                                                           0x02, // quantity of registers lo
+                                                           0x04, // byte count
+                                                           0x00, // reg0 hi
+                                                           0x0a, // reg0 lo
+                                                           0x01, // reg1 hi
+                                                           0x02, // reg1 lo
+
+                                                           0x1C,
+                                                           0xd4// crc16
+    };
+
+    ModbusDataContainerUint16 payload (ByteOrder::LittleEndian, { 0x000a, 0x0102 });
+
+    DataVectorUint8 incomming_rtu_response           { 0x2A, // unit id
+                                                       0x10,
+                                                       0x00, // start address hi
+                                                       0x01, // start address lo
+                                                       0x00, // quantity of registers hi
+                                                       0x02, // quantity of registers lo
+
+                                                       0x00, // wrong crc16, this should trigger an exception.
+                                                       0x00
+   };
+
+    NiceMock<MockSerialDevice> serial_device;
+    RTUConnectionConfiguration config;
+
+    EXPECT_CALL( serial_device, readFromDevice( _ , _ , _ , _ ))
+        .WillOnce( DoAll( SetArrayArgument<1>( incomming_rtu_response.begin(), incomming_rtu_response.end() ) ,
+                          Return( incomming_rtu_response.size() )));
+
+    EXPECT_CALL(
+        serial_device,
+        writeToDevice( _ ,
+                       _ , // c style array here.
+                       _ )  )
+        .With( ::testing::Args<1,2>(ElementsAreArray( outgoing_rtu_write_multiple_register ))) // Seems that c style arrays have their own style of matching parameters
+        .WillOnce( Return( outgoing_rtu_write_multiple_register.size() ));
+
+    RTUConnection connection( config, serial_device );
+
+    ModbusRTUClient client(connection);
+
+    ASSERT_THROW( client.writer_multiple_registers( 0x2a, 0x0001, 0x02, payload, false), std::runtime_error ); // exception thrown on crc error
+
+}
+
 
 TEST(RTUClientTest, test_rtu_client_error_responses ) {
 
     // we "send" a valid request "outside", and have a error response return.
     // we test if an exception (std::runtime_error) is thrown on error responsess.
 
-    using ::testing::Return;
-    using ::testing::_;
-
     using namespace ::everest::modbus;
+    using namespace ::everest::connection;
+
+    using ::testing::_;
+    using ::testing::Return;
+    using ::testing::NiceMock;
+    using ::testing::SetArrayArgument;
+    using ::testing::DoAll;
+    using ::testing::ElementsAreArray;
 
     // stolen from modbus spec
     DataVectorUint8 outgoing_rtu_write_multiple_register { 0x2A, // unit id
@@ -332,14 +457,22 @@ TEST(RTUClientTest, test_rtu_client_error_responses ) {
 
     ModbusDataContainerUint16 payload (ByteOrder::LittleEndian, { 0x000a, 0x0102 });
 
-    MockRTUConnection connection;
+    NiceMock<MockSerialDevice> serial_device;
+    RTUConnectionConfiguration config;
 
-    // step one: construct outgoing request
-    EXPECT_CALL(connection, send_bytes ( outgoing_rtu_write_multiple_register ))
-        .Times(1);
+    RTUConnection connection( config, serial_device );
 
-    EXPECT_CALL(connection, receive_bytes ( ::everest::modbus::consts::rtu::MAX_ADU ))
-        .WillOnce( Return( incomming_rtu_error_response ));
+    EXPECT_CALL( serial_device, readFromDevice( _ , _ , _ , _ ))
+        .WillOnce( DoAll( SetArrayArgument<1>( incomming_rtu_error_response.begin(), incomming_rtu_error_response.end() ) ,
+                          Return( incomming_rtu_error_response.size() )));
+
+    EXPECT_CALL(
+        serial_device,
+        writeToDevice( _ ,
+                       _ , // c style array here.
+                       _ )  )
+        .With( ::testing::Args<1,2>(ElementsAreArray( outgoing_rtu_write_multiple_register ))) // Seems that c style arrays have their own style of matching parameters
+        .WillOnce( Return( outgoing_rtu_write_multiple_register.size() ));
 
     ModbusRTUClient client(connection);
 

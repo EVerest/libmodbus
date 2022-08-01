@@ -7,6 +7,22 @@
 #include <unistd.h> // write(), read(), close()
 
 #include <stdexcept>
+namespace everest {
+    namespace connection {
+        namespace serial_connection_helper {
+
+            int openSerialDevice( const std::string device );
+            int closeSerialDevice( int serial_port_fd );
+            void getConfiguration( int serial_port_fd, termios* tty );
+            void updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ );
+            void updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds );
+            void configureDevice( int serial_port_fd, termios* tty );
+            ::size_t writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count );
+            ::size_t readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config );
+
+        }
+    }
+}
 
 int everest::connection::SerialDevice::openSerialDevice( const std::string device ){
 
@@ -57,8 +73,6 @@ void everest::connection::SerialDevice::configureDevice( int serial_port_fd, ter
 
 
 int everest::connection::serial_connection_helper::openSerialDevice( const std::string device ) {
-
-    // using namespace std::string_literals;
 
     int fd = open( device.c_str() , O_RDWR );
 
@@ -168,7 +182,7 @@ void everest::connection::serial_connection_helper::configureDevice( int serial_
 
 ::size_t everest::connection::serial_connection_helper::readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config ) {
 
-    static_assert( std::is_unsigned<decltype(count)>::value );
+    static_assert( std::is_unsigned<decltype(count)>::value , "need an unsigned type here. ");
 
     if ( count == 0 )
         return 0;

@@ -25,18 +25,18 @@ namespace everest {
 
         };
 
-        namespace serial_connection_helper {
+        // namespace serial_connection_helper {
 
-            int openSerialDevice( const std::string device );
-            int closeSerialDevice( int serial_port_fd );
-            void getConfiguration( int serial_port_fd, termios* tty );
-            void updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ );
-            void updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds );
-            void configureDevice( int serial_port_fd, termios* tty );
-            ::size_t writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count );
-            ::size_t readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config );
+        //     int openSerialDevice( const std::string device );
+        //     int closeSerialDevice( int serial_port_fd );
+        //     void getConfiguration( int serial_port_fd, termios* tty );
+        //     void updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ );
+        //     void updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds );
+        //     void configureDevice( int serial_port_fd, termios* tty );
+        //     ::size_t writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count );
+        //     ::size_t readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config );
 
-        }
+        // }
     }
 }
 

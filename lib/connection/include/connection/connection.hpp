@@ -29,6 +29,7 @@ namespace everest { namespace connection {
             virtual int make_connection() = 0;
             virtual int close_connection() = 0;
             virtual int send_bytes(const std::vector<uint8_t>& bytes_to_send) = 0;
+        // result of receive_bytes is a vector that has the size of received bytes
             virtual std::vector<uint8_t> receive_bytes(unsigned int number_of_bytes) = 0;
             virtual bool is_valid() const = 0;
     };
@@ -84,13 +85,17 @@ namespace everest { namespace connection {
             int m_fd = -1;
             termios m_tty_config {};
 
+            ::everest::connection::SerialDevice& m_serial_device;
+
         protected:
 
-            RTUConnection() {}
+            RTUConnection( ::everest::connection::SerialDevice& sd ) :
+                m_serial_device( sd )
+                {}
 
         public:
 
-            RTUConnection( const RTUConnectionConfiguration& );
+            RTUConnection( const RTUConnectionConfiguration& , ::everest::connection::SerialDevice& serialDevice );
             virtual int make_connection() override;
             virtual int close_connection() override;
             virtual int send_bytes(const std::vector<uint8_t>& bytes_to_send) override;

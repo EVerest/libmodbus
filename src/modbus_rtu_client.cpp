@@ -5,7 +5,7 @@
 #include <string>
 #include <consts.hpp>
 #include <sstream>
-// #include <iostream>
+#include <iostream>
 #include <iomanip>
 #include <limits>
 
@@ -201,12 +201,15 @@ const everest::modbus::DataVectorUint8 ModbusRTUClient::full_message_from_body(c
 
 }
 
-uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVectorUint8& response, const DataVectorUint8& request) const {
+uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVectorUint8& response,  const DataVectorUint8& request) const {
 
     using namespace std::string_literals;
 
     if ( response.size() > max_adu_size() )
         throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " response size " + std::to_string( response.size() ) + " is larger than max allowed message size " + std::to_string( max_adu_size() ) + " !");
+
+    if ( response.empty() )
+        throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " response is empty, maybe timeout on reading device. ");
 
     // FIXME: What happens in case the request was a broadcast?
     if ( response.at( 0 ) != request.at( 0 ) )
@@ -255,6 +258,16 @@ uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVectorUin
 
     if ( response.at( 1 ) != request.at( 1 ) )
         throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " request / response function id mismatch. " );
+
+    SwapIt crcResponseCalculated;
+    crcResponseCalculated.value_16 = ::everest::modbus::utils::calcCRC_16_ANSI( response.data(), response.size() - 2 );
+
+    SwapIt crcResponseData;
+    crcResponseData.value_8.hi = response.at( response.size() - 2 );
+    crcResponseData.value_8.low = response.at( response.size() - 1 );
+
+    if ( crcResponseCalculated.value_16 != crcResponseData.value_16 )
+        throw std::runtime_error ( ""s + __PRETTY_FUNCTION__ + " checksum error " );
 
     uint16_t result_size = response.at( 2 );
 
