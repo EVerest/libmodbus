@@ -123,23 +123,13 @@ TEST(RTUTestHardware, test_lowlevel_serial ) {
    auto bytes_written = serial_device.writeToDevice( serial_port, request_common_model, sizeof( request_common_model ));
 
    ASSERT_EQ( bytes_written , sizeof( request_common_model ) ); // the common model has this size on this device...
-   // std::cout << "bytes written: " << bytes_written << std::endl;
 
    std::vector<unsigned char> readbuffer( ::everest::modbus::consts::rtu::MAX_ADU );
-   const unsigned char memoryMarker = 0x42;
-   // readbuffer.resize( buffer_size , memoryMarker );
    ::size_t bytes_read = serial_device.readFromDevice( serial_port, readbuffer.data(), readbuffer.size(), &tty_config );
 
-   // std::cout << "bytes read: " << bytes_read << "\n";
    EXPECT_EQ( bytes_read , (unsigned)137 ); // the common model has this size on this device...
    ASSERT_GT( bytes_read, (unsigned)0 );    // does not make sense to continue testing if we dont read anything...
    ASSERT_LE( bytes_read , ::everest::modbus::consts::rtu::MAX_ADU ); // make sure we dont read past the end.
-   ASSERT_EQ( readbuffer[ bytes_read ] , memoryMarker );
-
-   // for ( ::size_t index = 0; index < bytes_read ; index++ )
-   //     std::cout << "index : " << std::dec << std::setw( 4 ) << index << " value: " << std::hex <<  std::setw( 4 ) << (int)readbuffer[index] << "\n";
-
-   std::cout.flush();
    ::close( serial_port );
 
 }
