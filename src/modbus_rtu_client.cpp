@@ -8,35 +8,21 @@
 #include <iostream>
 #include <iomanip>
 #include <limits>
-
+#include <algorithm>
 
 using namespace everest::modbus;
 
+/*
+ * Note on implemetation:
+ * It is known that we often copy data from one vector to the other ( full_message_from_body, helper function in utils )
+ * This is by design of the older parts of this library.
+ */
+
 ModbusRTUClient::ModbusRTUClient(connection::Connection& conn_) : ModbusClient(conn_) {}
 
-ModbusRTUClient::~ModbusRTUClient() {}
-
-// ModbusRTUClient::~ModbusRTUClient() {
-//     conn.close_connection();
-// }
-//     // A Modbus "frame" consists of an Application Data Unit (ADU), which encapsulates a Protocol Data Unit (PDU):[8]
-
-//     // ADU = Address + PDU + Error check.
-//     // PDU = Function code + Data.
-
-//     // Modbus RTU frame format
-
-//     // This format is primarily used on asynchronous serial data lines like RS-485/EIA-485. Its name refers to a remote terminal unit.
-//     // Name     Length (bits)   Function
-//     // Start    3.5 x 8     At least 3+1⁄2 character times (28 bits) of silence (mark condition)
-//     // Address      8   Station address
-//     // Function     8   Indicates the function code e.g. "read coils"
-//     // Data     n × 8   Data + length will be filled depending on the message type
-//     // CRC      16      Cyclic redundancy check
-//     // End      3.5 x 8     At least 3+1⁄2 character times (28 bits) of silence (mark condition) between frames
-
-//     // According to this protocol's specification, a full Modbus frame (ADU) can have a PDU with a maximum size of 253 bytes.
-
+ModbusRTUClient::~ModbusRTUClient() {
+    conn.close_connection();
+}
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
@@ -58,40 +44,20 @@ DataVectorUint8 ModbusRTUClient::response_without_protocol_data( const DataVecto
 
 }
 
-const DataVectorUint8 ModbusRTUClient::read_holding_register(uint8_t unit_id, uint16_t first_register_address, uint16_t num_registers_to_read, bool return_only_registers_bytes ) const {
-
-    const std::size_t ModbusRTUQueryLength { 8 };
+const DataVectorUint8 ModbusRTUClient::read_holding_register(uint8_t unit_id,
+                                                             uint16_t first_register_address,
+                                                             uint16_t num_registers_to_read,
+                                                             bool return_only_registers_bytes ) const {
 
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
-    SwapIt swapit;
+    DataVectorUint8 body = utils::build_read_holding_register_message_body(first_register_address,num_registers_to_read);
 
-    DataVectorUint8 outgoing_data( ModbusRTUQueryLength ); // capacity and size == ModbusRTUQueryLength
+    DataVectorUint8 full_message = full_message_from_body(body, consts::READ_HOLDING_REGISTER_MESSAGE_LENGTH, unit_id );
 
-    outgoing_data[ 0 ] = unit_id;
-    outgoing_data[ 1 ] = 0x03; // read holding register command
-
-    // register address
-    swapit.value_16 = first_register_address;
-    outgoing_data[ 2 ] = swapit.value_8.hi;
-    outgoing_data[ 3 ] = swapit.value_8.low;
-
-    // number of regs to read
-    swapit.value_16 = num_registers_to_read;
-    outgoing_data[ 4 ] = swapit.value_8.hi;
-    outgoing_data[ 5 ] = swapit.value_8.low;
-
-    // crc16 of payload
-    swapit.value_16 = everest::modbus::utils::calcCRC_16_ANSI(outgoing_data.data(), ModbusRTUQueryLength - 2 );
-    outgoing_data[ 6 ] = swapit.value_8.hi;
-    outgoing_data[ 7 ] = swapit.value_8.low;
-
-    conn.send_bytes(outgoing_data);
-
+    conn.send_bytes(full_message);
     modbus::DataVectorUint8 response = conn.receive_bytes( max_adu_size() );
-
-    uint16_t payload_size = validate_response(response, outgoing_data ) ;
-
+    uint16_t payload_size = validate_response(response, full_message ) ;
     return return_only_registers_bytes ? response_without_protocol_data( response , payload_size ) : response;
 
     #else
@@ -111,7 +77,7 @@ DataVectorUint8 ModbusDataContainerUint16::get_payload_as_bigendian() const {
     if ( m_byte_order == ByteOrder::LittleEndian )
         for( uint16_t value : m_payload ) {
             SwapIt s { value };
-            result.push_back( s.value_8.hi );
+            result.push_back( s.value_8.hi   );
             result.push_back( s.value_8.low  );
         }
     else
@@ -125,13 +91,10 @@ DataVectorUint8 ModbusDataContainerUint16::get_payload_as_bigendian() const {
 }
 
 DataVectorUint8 everest::modbus::ModbusRTUClient::writer_multiple_registers( uint8_t unit_id,
-                                                                  uint16_t first_register_address,
-                                                                  uint16_t num_registers_to_write,
-                                                                  const ModbusDataContainerUint16& payload,
-                                                                  bool return_only_registers_bytes
-    ) {
-
-    // TODO: write test for this!!!:
+                                                                             uint16_t first_register_address,
+                                                                             uint16_t num_registers_to_write,
+                                                                             const ModbusDataContainerUint16& payload,
+                                                                             bool return_only_registers_bytes ) const {
 
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
@@ -140,48 +103,12 @@ DataVectorUint8 everest::modbus::ModbusRTUClient::writer_multiple_registers( uin
     if ( num_registers_to_write > 123 )
         throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " only max 123 register allowed to be written, request was: " + std::to_string(num_registers_to_write) + " register" );
 
-    DataVectorUint8 outgoing_payload = payload.get_payload_as_bigendian();
+    DataVectorUint8 body = utils::build_write_multiple_register_body(first_register_address, num_registers_to_write, payload );
+    DataVectorUint8 full_message = full_message_from_body(body, body.size() /* unused parameter */, unit_id );
 
-    std::size_t outgoing_data_size {
-        1 + // unit id
-        1 + // function code
-        2 + // starting address
-        2 + // quantity of registers
-        1 + // byte count
-        outgoing_payload.size() +
-        2   // crc16
-    };
-
-    DataVectorUint8 outgoing_data( outgoing_data_size );
-    SwapIt swapit;
-    outgoing_data[ 0 ] = unit_id;
-    outgoing_data[ 1 ] = 0x10; // function code "write multiple registers".
-
-    swapit.value_16 = first_register_address ;
-    outgoing_data[ 2 ] = swapit.value_8.hi;
-    outgoing_data[ 3 ] = swapit.value_8.low;
-
-    swapit.value_16 = num_registers_to_write ;
-    outgoing_data[ 4 ] = swapit.value_8.hi;
-    outgoing_data[ 5 ] = swapit.value_8.low;
-
-    outgoing_data[ 6 ] = num_registers_to_write * 2; // 16 bit register for now
-
-    auto it = outgoing_data.begin() + 7;
-    for ( auto data: outgoing_payload )
-        (*it++) = data;
-
-    swapit.value_16 = everest::modbus::utils::calcCRC_16_ANSI(outgoing_data.data(), outgoing_data_size - 2 ); // crc for the whole container, omitting the last two unit8 for the crc itself.
-
-    (*(outgoing_data.end() - 2)) = swapit.value_8.hi;
-    (*(outgoing_data.end() - 1)) = swapit.value_8.low;
-
-    conn.send_bytes( outgoing_data );
-
+    conn.send_bytes(full_message);
     modbus::DataVectorUint8 response = conn.receive_bytes( max_adu_size() );
-
-    uint16_t payload_size = validate_response(response, outgoing_data ) ;
-
+    uint16_t payload_size = validate_response(response, full_message ) ;
     return return_only_registers_bytes ? response_without_protocol_data( response , payload_size ) : response;
 
     #else
@@ -193,12 +120,23 @@ DataVectorUint8 everest::modbus::ModbusRTUClient::writer_multiple_registers( uin
 }
 
 
-const everest::modbus::DataVectorUint8 ModbusRTUClient::full_message_from_body(const DataVectorUint8& body, uint16_t message_length, std::uint8_t unit_id) const {
+const everest::modbus::DataVectorUint8 ModbusRTUClient::full_message_from_body(const DataVectorUint8& body, uint16_t /* message_length */, std::uint8_t unit_id) const {
 
-    using namespace std::string_literals;
+    // body now is the modbus command code and the payload.
+    DataVectorUint8 full_message; // need an empty vector
+    full_message.reserve(  body.size() +
+                           1 + // unit_id
+                           2 ); // crc16
 
-    throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " not implemented." );
+    full_message.push_back( unit_id );
+    std::copy( body.cbegin(),body.cend(),std::back_inserter( full_message ));
 
+    SwapIt swapIt;
+    swapIt.value_16 = everest::modbus::utils::calcCRC_16_ANSI(full_message.data(), full_message.size());
+    full_message.push_back( swapIt.value_8.hi );
+    full_message.push_back( swapIt.value_8.low );
+
+    return full_message;
 }
 
 uint16_t everest::modbus::ModbusRTUClient::validate_response(const DataVectorUint8& response,  const DataVectorUint8& request) const {

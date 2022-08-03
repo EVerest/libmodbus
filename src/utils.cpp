@@ -5,6 +5,7 @@
 #include <random>
 #include <stdlib.h>
 #include <iostream>
+#include <algorithm>
 
 #include <modbus/utils.hpp>
 #include <modbus/exceptions.hpp>
@@ -59,6 +60,32 @@ std::vector<uint8_t> utils::build_read_holding_register_message_body(uint16_t fi
     return message_body;
 }
 
+std::vector<uint8_t> utils::build_write_multiple_register_body( uint16_t first_register_address, uint16_t num_registers_to_write, const ::everest::modbus::ModbusDataContainerUint16& payload ) {
+
+    std::vector<uint8_t> message_body;
+    message_body.reserve( 1 + // function code
+                          2 + // starting address
+                          2 + // quantity of registers
+                          payload.size() );
+
+    message_body.push_back( 0x10 ); // function code
+
+    // first register address
+    message_body.push_back( ( first_register_address >> 8 ) & 0xff ); // hibyte
+    message_body.push_back( first_register_address &          0xff ); // lowbyte
+
+    // number of register to write
+    message_body.push_back( ( num_registers_to_write >> 8 ) & 0xff ); // hibyte
+    message_body.push_back( num_registers_to_write          & 0xff ); // lowbyte
+
+    // byte count: for now only 16 bit register, so bytecount is num_registers_to_write * 2
+    message_body.push_back( num_registers_to_write * 2 );
+    std::vector<uint8_t> payload_big_endian = payload.get_payload_as_bigendian();
+    std::copy( payload_big_endian.cbegin(), payload_big_endian.cend(), std::back_inserter(message_body));
+
+    return message_body;
+}
+
 uint16_t utils::ip::check_mbap_header(const std::vector<uint8_t>& sent_message, const std::vector<uint8_t>& received_message) {
 
     // Validating echoed transaction ID
@@ -99,8 +126,8 @@ std::vector<uint8_t> utils::extract_register_bytes_from_response(const std::vect
 }
 
 std::vector<uint8_t> utils::extract_registers_bytes_from_response_body(const std::vector<uint8_t>& response_body) {
-    uint8_t unit_id = response_body[0];
-    uint8_t function_code = response_body[1];
+    // uint8_t unit_id = response_body[0];
+    // uint8_t function_code = response_body[1];
     uint8_t num_register_bytes = response_body[2];
     std::vector<uint8_t> register_bytes = std::vector<uint8_t>(response_body.end() - num_register_bytes, response_body.end());
     return register_bytes;

@@ -4,7 +4,6 @@
 #include <everest/logging.hpp>
 
 using namespace everest::connection;
-// using namespace everest::connection::serial_connection_helper;
 
 RTUConnection::RTUConnection( const RTUConnectionConfiguration& cfg , ::everest::connection::SerialDevice& serialdevice ) :
     m_config( cfg ),
