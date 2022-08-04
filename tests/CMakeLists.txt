@@ -23,3 +23,10 @@ target_link_libraries(test_rtu everest::modbus)
 enable_testing()
 
 add_test(test_rtu test_rtu)
+
+add_executable(test_rtu_refactor test_rtu_refactor.cpp)
+target_compile_options( test_rtu_refactor PUBLIC -Wall -Wextra -Werror)
+target_include_directories(test_rtu_refactor PUBLIC ${gtest_include})
+target_link_directories(test_rtu_refactor    PUBLIC ${gtest_lib})
+target_link_libraries(test_rtu_refactor gtest gtest_main gmock)
+add_test(test_rtu_refactor test_rtu_refactor)

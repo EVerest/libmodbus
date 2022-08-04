@@ -13,8 +13,11 @@ find_package(EDM REQUIRED)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+add_link_options(-fuse-ld=mold)
+
 option(BUILD_EXAMPLES "Build example programs" OFF)
 option(BUILD_TDD_STUFF "Build gtest tdd stuff" OFF)
+# option(BUILD_SHARED_LIBS "Build shared libs" ON)
 
 add_library(${PROJECT_NAME} src/modbus_client.cpp src/modbus_ip_client.cpp src/modbus_rtu_client.cpp src/utils.cpp)
 add_library(everest::modbus ALIAS ${PROJECT_NAME})

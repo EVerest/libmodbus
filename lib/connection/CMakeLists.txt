@@ -6,6 +6,7 @@ project(connection VERSION 0.1)
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+# option(BUILD_SHARED_LIBS "Build shared libs" ON)
 
 find_package(EDM REQUIRED)
 

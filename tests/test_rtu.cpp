@@ -408,7 +408,6 @@ TEST(RTUClientTest, test_rtu_client_crc_error ) {
 
 }
 
-
 TEST(RTUClientTest, test_rtu_client_error_responses ) {
 
     // we "send" a valid request "outside", and have a error response return.
@@ -473,7 +472,6 @@ TEST(RTUClientTest, test_rtu_client_error_responses ) {
                                       false // return full response
                       ) , std::runtime_error );
 }
-
 
 TEST(RTUClientTest, test_response_without_protocol_data ) {
 
