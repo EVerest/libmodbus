@@ -9,6 +9,8 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <iterator>
+
 
 #include <termios.h>
 #include <fcntl.h> // Contains file controls like O_RDWR
@@ -303,13 +305,18 @@ using namespace  std::string_literals;
 
 namespace ModbusMessages {
 
-    struct Data {
+    struct ResponseData {
         DataVector data;
-        DataVector::iterator payload_begin { data.end() };
-        DataVector::iterator payload_end { data.end() };
+        DataVector::const_iterator payload_begin { data.begin() };
+        DataVector::const_iterator payload_end { data.end() };
     };
 
-    using DataSpt = std::shared_ptr<Data>;
+    namespace RTU {
+        constexpr uint16_t MAX_ADU = 256;
+        constexpr uint16_t MAX_PDU = 253;
+    }
+
+    using ResponseDataSpt = std::shared_ptr<ResponseData>;
 
     class AbstractModbusQuery {
 
@@ -317,7 +324,7 @@ namespace ModbusMessages {
 
         virtual bool is_ready() const = 0;
         virtual std::size_t size() const = 0;
-        virtual void append_query_to( DataVectorSpt ) const = 0;
+        virtual void append_query_to( DataVector& ) const = 0;
 
     };
 
@@ -349,41 +356,51 @@ namespace ModbusMessages {
 
         bool is_ready() const override { return m_register_address.has_value() and m_number_of_register_to_read.has_value(); }
 
-        void append_query_to( DataVectorSpt outgoing ) const override {
+        void append_query_to( DataVector& outgoing ) const override {
 
-                outgoing -> push_back( high_byte( m_register_address.value() ));
-                outgoing -> push_back( low_byte(  m_register_address.value() ));
-                outgoing -> push_back( high_byte( m_number_of_register_to_read.value() ));
-                outgoing -> push_back( low_byte(  m_number_of_register_to_read.value() ));
+                outgoing.push_back( high_byte( m_register_address.value() ));
+                outgoing.push_back( low_byte(  m_register_address.value() ));
+                outgoing.push_back( high_byte( m_number_of_register_to_read.value() ));
+                outgoing.push_back( low_byte(  m_number_of_register_to_read.value() ));
 
         }
     };
-    class AbstractModbusResponse {
+
+    class ModbusResponse {
 
     protected:
 
-        DataVectorSpt m_data_spt {};
+        ResponseData m_data {};
 
     public:
 
-        std::size_t size() const { return m_data_spt ? m_data_spt -> size() : 0; }
-        virtual void set_buffer( const DataVectorSpt data_spt ) {
-            m_data_spt = data_spt;
+        std::size_t size_raw()      const { return m_data.data.size(); }
+        std::size_t size_payload () const {
+            return
+                m_data.payload_begin > m_data.payload_end ?
+                0 : // the iterator seem to point somewhere into the nothing...
+                size_raw() -
+                ( std::distance( m_data.data.begin() , m_data.payload_begin ) +
+                  std::distance( m_data.payload_end  , m_data.data.end() ));
         }
-        virtual DataVector response_data() const = 0;
+
+        ResponseData& get_response_data_container() { return m_data; }
+
+        // need this?
+        DataVector response_data() const {
+
+            DataVector result;
+            result.reserve( size_payload() );
+            std::copy( m_data.payload_begin, m_data.payload_end, std::back_inserter( result ) );
+            return result;
+
+        }
 
     };
 
-    class ReadHoldingRegisterResponse : public AbstractModbusResponse {
+    class ReadHoldingRegisterResponse : public ModbusResponse {
 
     public:
-
-        virtual DataVector response_data() const {
-
-            if ( not m_data_spt )
-                throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " no data buffer available!" );
-            return DataVector( );
-        }
 
     };
 
@@ -400,8 +417,19 @@ namespace ModbusTransport {
         unsigned int m_initial_wait_deciseconds = 50; // wait 5 secs for response
     };
 
+    class AbstractModbusTransport {
 
-    class RTU {
+    public:
+
+        virtual std::size_t max_message_size() const = 0;
+
+        virtual void send( const ModbusMessages::AbstractModbusQuery&  ) = 0;
+        virtual void read( ModbusMessages::ModbusResponse&  ) = 0;
+        virtual void verify_response( ModbusMessages::ModbusResponse& ) const = 0;
+
+    };
+
+    class RTU : public AbstractModbusTransport {
 
     private:
 
@@ -409,21 +437,13 @@ namespace ModbusTransport {
 
         SerialDevice m_serial_device;
 
-        DataVectorSpt m_data_spt;
-
-        int send_buffer() { // throws runtime_error
-            return m_serial_device.writeToDevice( m_serial_device.fd, m_data_spt->data(), m_data_spt->size() );
-        }
-
-        int read_response() {
-            // CONT HERE!
-        }
-
     public:
 
         RTU( RTUConfig config ) :
             m_config( config )
             {}
+
+        std::size_t max_message_size() const override { return ModbusMessages::RTU::MAX_ADU; }
 
         bool connected() const { return not ( m_serial_device.fd == -1 ); }
 
@@ -443,22 +463,44 @@ namespace ModbusTransport {
             m_serial_device.closeSerialDevice(m_serial_device.fd);
         }
 
-        void send( const ModbusMessages::AbstractModbusQuery& query ) {
+        void verify_response( ModbusMessages::ModbusResponse& ) const override {
+
+            // CONT HERE!
+            xx();
+
+        }
+
+        void send( const ModbusMessages::AbstractModbusQuery& query ) override {
 
             std::size_t full_query_size = query.size()
-                + 1 // unit id
+                + 1 // unit
                 + 2; // crc
 
-            m_data_spt = std::make_shared<DataVector>();
-            // TODO: check max message size
+            DataVector buffer;
+            buffer.reserve( full_query_size );
+            buffer.push_back( m_config.unit_id );
+            query.append_query_to( buffer );
 
-            m_data_spt -> reserve( full_query_size );
-            m_data_spt -> push_back( m_config.unit_id );
-            query.append_query_to( m_data_spt );
+            std::uint16_t crc16 = calcCRC_16_ANSI( buffer.data(), buffer.size() );
+            buffer.push_back( high_byte( crc16 )); // check if this is ok...
+            buffer.push_back( low_byte( crc16 ));
 
-            std::uint16_t crc16 = calcCRC_16_ANSI( m_data_spt->data(), m_data_spt->size() );
-            m_data_spt -> push_back( high_byte( crc16 )); // check if this is ok...
-            m_data_spt -> push_back( low_byte( crc16 ));
+            m_serial_device.writeToDevice( m_serial_device.fd, buffer.data(), buffer.size() );
+
+        }
+
+        void read( ModbusMessages::ModbusResponse& response ) override {
+
+            ModbusMessages::ResponseData& response_data{ response.get_response_data_container() };
+
+            response_data.data.reserve( max_message_size() );
+            ssize_t bytes_read = m_serial_device.readFromDevice( m_serial_device.fd, response_data.data.data(), max_message_size() , &m_serial_device.tty_config );
+            response_data.data.resize( bytes_read );
+
+            verify_response( response );
+
+            response_data.payload_begin = response_data.data.begin() + 2; // strip unit id and function code
+            response_data.payload_end   = response_data.data.end()   - 2;   // strip crc16 at end
 
         }
 
@@ -466,8 +508,8 @@ namespace ModbusTransport {
             send( query );
         }
 
-        void operator >> ( ModbusMessages::AbstractModbusResponse& response ) {
-            response.set_buffer( m_data_spt );
+        void operator >> ( ModbusMessages::ModbusResponse& response ) {
+            read( response );
         }
     };
 }
@@ -530,5 +572,39 @@ TEST(TestStl, test_stl) {
 
     ASSERT_EQ( high_byte( val ) , 255 );
     ASSERT_EQ( low_byte ( val ) ,   0 );
+
+}
+
+TEST(TestModbusMessages, test_ModbusResponse) {
+
+    ModbusMessages::ModbusResponse res;
+
+    res.get_response_data_container().data = { 0,1,2,3,4,5,6 };
+
+    // verify setup
+    ASSERT_EQ( res.size_raw() , (unsigned)7 );
+    ASSERT_EQ( res.size_payload() , (unsigned)0 );
+    ASSERT_TRUE( res.get_response_data_container().payload_begin ==  res.get_response_data_container().payload_end );
+
+    // fill in information about stuff we dont need / protocol data.
+    res.get_response_data_container().payload_begin = res.get_response_data_container().data.cbegin() + 2 ; // strip function code and unit id, here 0,1
+
+    // compare iterator
+    ASSERT_TRUE( res.get_response_data_container().payload_begin >  res.get_response_data_container().payload_end );
+
+    // begin points past end, so we dont have any payload, payload size is 0.
+    ASSERT_EQ( res.size_payload() , (unsigned)0 );
+
+    res.get_response_data_container().payload_end = res.get_response_data_container().data.cend() - 2; // strip crc from end, here 5,6
+
+    // verify expected payload size.
+    ASSERT_EQ( res.size_payload() , (unsigned)3 );
+
+    // compare iterator
+    ASSERT_TRUE( res.get_response_data_container().payload_begin <  res.get_response_data_container().payload_end );
+
+    // test that our payload is ok.
+    DataVector expected_payload { 2,3,4 };
+    ASSERT_EQ( expected_payload , res.response_data() );
 
 }
