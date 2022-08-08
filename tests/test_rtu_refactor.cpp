@@ -1,3 +1,5 @@
+#include "serial_device.hpp"
+
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
@@ -12,223 +14,6 @@
 #include <iterator>
 
 
-#include <termios.h>
-#include <fcntl.h> // Contains file controls like O_RDWR
-
-class SerialDevice {
-
-public:
-
-    termios tty_config {};
-    int     fd = -1 ;
-
-    virtual int openSerialDevice( const std::string device );
-    virtual int closeSerialDevice( int serial_port_fd );
-    virtual void getConfiguration( int serial_port_fd, termios* tty );
-    virtual void updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ );
-    virtual void updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds );
-    virtual void configureDevice( int serial_port_fd, termios* tty );
-    virtual ::size_t writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count );
-    virtual ::size_t readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config );
-
-};
-
-namespace serial_connection_helper {
-
-    int openSerialDevice( const std::string device );
-    int closeSerialDevice( int serial_port_fd );
-    void getConfiguration( int serial_port_fd, termios* tty );
-    void updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ );
-    void updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds );
-    void configureDevice( int serial_port_fd, termios* tty );
-    ::size_t writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count );
-    ::size_t readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config );
-
-}
-
-int SerialDevice::openSerialDevice( const std::string device ){
-
-    return ::serial_connection_helper::openSerialDevice( device );
-
-}
-
-int SerialDevice::closeSerialDevice( int serial_port_fd ){
-
-    return ::serial_connection_helper::closeSerialDevice( serial_port_fd );
-
-}
-
-void SerialDevice::getConfiguration( int serial_port_fd, termios* tty ) {
-
-    return ::serial_connection_helper::getConfiguration( serial_port_fd, tty );
-
-}
-
-void SerialDevice::updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ ){
-
-    ::serial_connection_helper::updateConfiguration( tty );
-
-}
-void SerialDevice::updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds ){
-
-    ::serial_connection_helper::updateTimeoutConfiguration( tty , timeout_deciseconds );
-
-}
-void SerialDevice::configureDevice( int serial_port_fd, termios* tty ){
-
-    ::serial_connection_helper::configureDevice( serial_port_fd, tty );
-
-}
-::size_t SerialDevice::writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count ){
-
-    return ::serial_connection_helper::writeToDevice( serial_port_fd, buffer, count );
-
-}
-
-::size_t SerialDevice::readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config ) {
-
-    return ::serial_connection_helper::readFromDevice( serial_port_fd, buffer, count, tty_config );
-
-}
-
-
-
-
-int serial_connection_helper::openSerialDevice( const std::string device ) {
-
-    int fd = open( device.c_str() , O_RDWR );
-
-    if ( not ( fd == -1 ) )
-        return fd;
-
-    throw std::runtime_error( "Error open serial device: " + device + " Reason: " + strerror( errno ) );
-
-}
-
-int serial_connection_helper::closeSerialDevice( int serial_port_fd ) {
-
-    return ::close( serial_port_fd );
-}
-
-void serial_connection_helper::getConfiguration( int serial_port_fd, termios* tty ) {
-
-    if( tcgetattr(serial_port_fd, tty) != 0 ) {
-        int myerror = errno;
-        throw std::runtime_error( "Error " + std::to_string( myerror ) + " from tcgetattr: " + strerror(myerror));
-    }
-
-}
-
-void serial_connection_helper::updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ ) {
-
-    // using namespace std::string_literals;
-
-    // we are a bit verbose with these settings...
-    // BSM power meter used this as default:
-    // 19200 Baud
-    cfsetspeed( tty, B19200);
-    // Parity
-    tty->c_cflag  |= PARENB;
-    // 8 Data bits
-    tty->c_cflag &= ~CSIZE;
-    tty->c_cflag |= CS8;
-    // 1 Stop bit
-    tty->c_cflag &= ~CSTOPB;
-    // no CRTSCTS (?)
-    tty->c_cflag &= ~CRTSCTS;
-
-    // turn off modem specific stuff...
-    tty->c_cflag |= CREAD | CLOCAL; // Turn on READ & ignore ctrl lines (CLOCAL = 1)
-
-    // disable canonical mode (in canonical mode, data is processed after newline).
-    tty->c_lflag &= ~ICANON;
-
-    tty->c_lflag &= ~ECHO; // Disable echo
-    tty->c_lflag &= ~ECHOE; // Disable erasure
-    tty->c_lflag &= ~ECHONL; // Disable new-line echo
-
-    tty->c_lflag &= ~ISIG; // Disable interpretation of INTR, QUIT and SUSP
-
-    tty->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL); // Disable any special handling of received bytes
-
-    tty->c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
-    tty->c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
-
- }
-
-void serial_connection_helper::updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds ) {
-   // VMIN = 0, VTIME = 0: No blocking, return immediately with what is available
-   // play with this... we will see if this is needed.
-   // VMIN is a character count ranging from 0 to 255 characters, and VTIME is time measured in 0.1 second intervals, (0 to 25.5 seconds).
-   tty->c_cc[VTIME] = timeout_deciseconds; // wait at most for timeout_deciseconds for the first char to read
-   tty->c_cc[VMIN]  = 0;
-}
-
-void serial_connection_helper::configureDevice( int serial_port_fd, termios* tty ) {
-
-   // Save tty settings, also checking for error
-   if ( tcsetattr(serial_port_fd, TCSANOW, tty) != 0) {
-       int myerror = errno;
-       throw std::runtime_error("Error " + std::to_string( myerror ) + " from tcsetattr: " + strerror( myerror ));
-   }
-}
-
-::size_t serial_connection_helper::writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count ) {
-
-    ::size_t bytes_written_sum = 0;
-
-    while ( bytes_written_sum < count ) {
-    // write() writes up to count bytes from the buffer starting at buf to the file referred to by the file descriptor fd.
-    // On success, the number of bytes written is returned.  On error, -1 is returned, and errno is set to indicate the error.
-        ssize_t bytes_written = ::write( serial_port_fd, buffer, count );
-        if ( bytes_written == -1 ) {
-            // handle error
-            int myerror = errno;
-            throw std::runtime_error( "Error: " + std::to_string( myerror ) + " from ::write: " + strerror( myerror ));
-        }
-        bytes_written_sum += bytes_written;
-    }
-    return bytes_written_sum;
-}
-
-::ssize_t readByteFromDevice( int fd, unsigned char* charToRead ) {
-
-    ssize_t read_result = ::read( fd, charToRead, 1 );
-    if( not ( read_result == -1 ))
-        return read_result;
-
-    int myerror = errno;
-    throw std::runtime_error("Error: " + std::to_string( myerror ) + " from ::read: " + strerror( myerror ));
-
-}
-
-::size_t serial_connection_helper::readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config ) {
-
-    static_assert( std::is_unsigned<decltype(count)>::value , "need an unsigned type here. ");
-
-    if ( count == 0 )
-        return 0;
-
-    // read at least one byte
-    std::size_t index = 0;
-    ::size_t bytes_read = readByteFromDevice( serial_port_fd, &buffer[ index++ ] );
-    if ( bytes_read == 0 )
-        return 0;
-
-    // dont wait that long after the end of transmission as it is done at the beginning.
-    updateTimeoutConfiguration( tty_config, 2 );
-    configureDevice( serial_port_fd, tty_config );
-
-    while ( bytes_read < count ) {
-
-        auto bytes_current = readByteFromDevice( serial_port_fd, &buffer[ index++ ] );
-        if ( bytes_current == 0 )
-            return bytes_read;
-        bytes_read += bytes_current;
-
-    }
-    return bytes_read;
-}
 
 
 std::uint16_t calcCRC_16_ANSI( const std::uint8_t* payload, std::size_t payload_length ) {
@@ -300,6 +85,8 @@ using DataVectorSpt = std::shared_ptr<DataVector>;
 
 inline std::uint8_t high_byte ( std::uint16_t val ) { return ( val >> 8 ) & 0xff ; }
 inline std::uint8_t low_byte  ( std::uint16_t val ) { return val & 0xff ; }
+
+inline std::uint16_t big_endian( std::uint8_t high_byte, std::uint8_t low_byte ) { return ( high_byte << 8 ) | low_byte; }
 
 using namespace  std::string_literals;
 
@@ -374,6 +161,7 @@ namespace ModbusMessages {
 
     public:
 
+        bool empty() const { return size_raw() == 0; }
         std::size_t size_raw()      const { return m_data.data.size(); }
         std::size_t size_payload () const {
             return
@@ -394,6 +182,17 @@ namespace ModbusMessages {
             std::copy( m_data.payload_begin, m_data.payload_end, std::back_inserter( result ) );
             return result;
 
+        }
+
+        static inline bool is_exception_code( std::uint8_t code ) { return not ( ( code & 0x80 ) == 0 ); }
+        static inline bool function_code_without_exception_flag( std::uint8_t code ) { return code & 0x7f; }
+
+        std::uint8_t function_code() const {
+
+            if ( empty() )
+                throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " Attempt to get function code from empty / invalid response.");
+
+            return (*m_data.payload_begin);
         }
 
     };
@@ -421,12 +220,24 @@ namespace ModbusTransport {
 
     public:
 
+        // max number of bytes to transfer (another name for adu)
         virtual std::size_t max_message_size() const = 0;
+
+        // max number of bytes to transfer (application data unit), payload and protocol bytes.
+        virtual std::size_t max_adu_size()     const = 0;
+
+        // max payload size (function code and function specific data).
+        virtual std::size_t max_pdu_size()     const = 0;
 
         virtual void send( const ModbusMessages::AbstractModbusQuery&  ) = 0;
         virtual void read( ModbusMessages::ModbusResponse&  ) = 0;
         virtual void verify_response( ModbusMessages::ModbusResponse& ) const = 0;
 
+    };
+
+    struct RTUTransaction {
+        std::uint8_t m_unit_id;
+        std::uint8_t m_function_code;
     };
 
     class RTU : public AbstractModbusTransport {
@@ -437,13 +248,22 @@ namespace ModbusTransport {
 
         SerialDevice m_serial_device;
 
+        RTUTransaction m_transaction;
+
     public:
 
         RTU( RTUConfig config ) :
             m_config( config )
             {}
 
-        std::size_t max_message_size() const override { return ModbusMessages::RTU::MAX_ADU; }
+        // max number of bytes to transfer (another name for adu)
+        std::size_t max_message_size() const override { return max_adu_size(); }
+
+        // max number of bytes to transfer.
+        std::size_t max_adu_size() const override { return ModbusMessages::RTU::MAX_ADU; }
+
+        // max payload size (function code and function specific data).
+        std::size_t max_pdu_size() const override { return ModbusMessages::RTU::MAX_PDU; }
 
         bool connected() const { return not ( m_serial_device.fd == -1 ); }
 
@@ -463,10 +283,92 @@ namespace ModbusTransport {
             m_serial_device.closeSerialDevice(m_serial_device.fd);
         }
 
-        void verify_response( ModbusMessages::ModbusResponse& ) const override {
+        void verify_exception_code( ModbusMessages::ModbusResponse& response ) const {
 
-            // CONT HERE!
-            xx();
+            std::uint8_t function_code = response.function_code();
+
+            if ( (  function_code & 0x80 ) == 0 )
+                return; // no exception, just a normal function code
+
+            std::stringstream ss;
+            std::string error_message;
+            switch ( function_code ) {
+            case 0x01:
+                error_message = "ILLEGAL FUNCTION";
+                break;
+            case 0x02:
+                error_message = "ILLEGAL DATA ADDRESS";
+                break;
+            case 0x03:
+                error_message = "ILLEGAL DATA VALUE";
+                break;
+            case 0x04:
+                error_message = "SERVER DEVICE FAILURE";
+                break;
+            case 0x05:
+                error_message = "ACKNOWLEDGE";
+                break;
+            case 0x06:
+                error_message = "SERVER DEVICE BUSY";
+                break;
+                // case 0x07: does not exist
+            case 0x08:
+                error_message = "MEMORY PARITY ERROR";
+                break;
+                // case 0x09: does not exist
+            case 0x0a:
+                error_message = "GATEWAY PATH UNAVAILABLE";
+                break;
+            case 0x0b:
+                error_message = "GATEWAY TARGET DEVICE FAILED TO RESPOND";
+                break;
+            default:
+                error_message = "UNKNOWN ERROR";
+            }
+
+            ss << __PRETTY_FUNCTION__ << "  response returned an error code: " << std::hex << (int)function_code << " ( " << error_message << " ) ";
+
+            throw std::runtime_error( ss.str() );
+
+        }
+
+        // rtu implementaion
+        void verify_response( ModbusMessages::ModbusResponse& response ) const override {
+
+            using namespace std::string_literals;
+
+            if ( response.size_raw() > max_adu_size() )
+                throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " response size " + std::to_string( response.size_raw()  ) + " is larger than max allowed message size " + std::to_string( max_adu_size() ) + " !");
+
+            if ( response.empty() )
+                throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " response is empty, maybe timeout on reading device. ");
+
+            verify_exception_code( response );
+
+            std::uint16_t crcResponseCalculated = calcCRC_16_ANSI( response.get_response_data_container().data.data() , response.size_raw() - 2 );
+            std::uint16_t crcResponseData = big_endian( (*response.get_response_data_container().data.cend() - 2 ),(*response.get_response_data_container().data.cend() - 1 ) );
+
+            if ( crcResponseCalculated != crcResponseData )
+                throw std::runtime_error ( ""s + __PRETTY_FUNCTION__ + " checksum error " );
+
+        }
+
+        // this is the rtu transport
+        void verify_transaction( ModbusMessages::ModbusResponse& response ) {
+
+            using namespace std::string_literals;
+
+            std::uint8_t function_code = ModbusMessages::ModbusResponse::function_code_without_exception_flag( response.function_code() );
+
+            std::uint8_t unit_id = response.get_response_data_container().data.at( 0 );
+
+            if ( m_transaction.m_unit_id != unit_id )
+                throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " transaction error. transaction unit id " + std::to_string( m_transaction.m_unit_id ) +
+                                          " not equal to response unit id: " + std::to_string( unit_id ) + " !" );
+
+            if ( m_transaction.m_function_code != function_code )
+                throw std::runtime_error( ""s + __PRETTY_FUNCTION__ + " transaction error. transaction function code " + std::to_string( m_transaction.m_function_code ) +
+                                          " not equal to response function code : " + std::to_string( function_code ) + " !" );
 
         }
 
@@ -487,6 +389,9 @@ namespace ModbusTransport {
 
             m_serial_device.writeToDevice( m_serial_device.fd, buffer.data(), buffer.size() );
 
+            m_transaction.m_function_code = buffer.at( 1 );
+            m_transaction.m_unit_id = buffer.at( 0 );
+
         }
 
         void read( ModbusMessages::ModbusResponse& response ) override {
@@ -497,10 +402,12 @@ namespace ModbusTransport {
             ssize_t bytes_read = m_serial_device.readFromDevice( m_serial_device.fd, response_data.data.data(), max_message_size() , &m_serial_device.tty_config );
             response_data.data.resize( bytes_read );
 
+            // check that the response is formally correct..
             verify_response( response );
-
             response_data.payload_begin = response_data.data.begin() + 2; // strip unit id and function code
             response_data.payload_end   = response_data.data.end()   - 2;   // strip crc16 at end
+            // check that the response is the one we excpected..
+            verify_transaction( response );
 
         }
 

@@ -24,7 +24,8 @@ enable_testing()
 
 add_test(test_rtu test_rtu)
 
-add_executable(test_rtu_refactor test_rtu_refactor.cpp)
+add_executable(test_rtu_refactor test_rtu_refactor.cpp serial_device.cpp)
+
 target_compile_options( test_rtu_refactor PUBLIC -Wall -Wextra -Werror)
 target_include_directories(test_rtu_refactor PUBLIC ${gtest_include})
 target_link_directories(test_rtu_refactor    PUBLIC ${gtest_lib})
