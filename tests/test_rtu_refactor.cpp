@@ -14,8 +14,6 @@
 #include <iterator>
 
 
-using DataVector = std::vector<std::uint8_t>;
-
 #include "modbus_transport.hpp"
 
 #include "crc16.hpp"
@@ -109,7 +107,7 @@ TEST(TestModbusMessages, test_ModbusResponse) {
     ASSERT_TRUE( res.get_response_data_container().payload_begin <  res.get_response_data_container().payload_end );
 
     // test that our payload is ok.
-    DataVector expected_payload { 2,3,4 };
+    ModbusMessages::DataVector expected_payload { 2,3,4 };
     ASSERT_EQ( expected_payload , res.response_data() );
 
 }
