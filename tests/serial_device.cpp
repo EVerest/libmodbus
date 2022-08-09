@@ -18,11 +18,13 @@ namespace serial_connection_helper {
 
 }
 
+
 int SerialDevice::openSerialDevice( const std::string device ){
 
     return ::serial_connection_helper::openSerialDevice( device );
 
 }
+
 
 int SerialDevice::closeSerialDevice( int serial_port_fd ){
 
@@ -30,32 +32,41 @@ int SerialDevice::closeSerialDevice( int serial_port_fd ){
 
 }
 
+
 void SerialDevice::getConfiguration( int serial_port_fd, termios* tty ) {
 
     return ::serial_connection_helper::getConfiguration( serial_port_fd, tty );
 
 }
 
+
 void SerialDevice::updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ ){
 
     ::serial_connection_helper::updateConfiguration( tty );
 
 }
+
+
 void SerialDevice::updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds ){
 
     ::serial_connection_helper::updateTimeoutConfiguration( tty , timeout_deciseconds );
 
 }
+
+
 void SerialDevice::configureDevice( int serial_port_fd, termios* tty ){
 
     ::serial_connection_helper::configureDevice( serial_port_fd, tty );
 
 }
+
+
 ::size_t SerialDevice::writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count ){
 
     return ::serial_connection_helper::writeToDevice( serial_port_fd, buffer, count );
 
 }
+
 
 ::size_t SerialDevice::readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config ) {
 
@@ -63,21 +74,25 @@ void SerialDevice::configureDevice( int serial_port_fd, termios* tty ){
 
 }
 
+
 int serial_connection_helper::openSerialDevice( const std::string device ) {
 
     int fd = open( device.c_str() , O_RDWR );
 
     if ( not ( fd == -1 ) )
+
         return fd;
 
     throw std::runtime_error( "Error open serial device: " + device + " Reason: " + strerror( errno ) );
 
 }
 
+
 int serial_connection_helper::closeSerialDevice( int serial_port_fd ) {
 
     return ::close( serial_port_fd );
 }
+
 
 void serial_connection_helper::getConfiguration( int serial_port_fd, termios* tty ) {
 
@@ -87,6 +102,7 @@ void serial_connection_helper::getConfiguration( int serial_port_fd, termios* tt
     }
 
 }
+
 
 void serial_connection_helper::updateConfiguration( termios* tty /*, const SerialDeviceOptions& */ ) {
 
@@ -121,7 +137,8 @@ void serial_connection_helper::updateConfiguration( termios* tty /*, const Seria
     tty->c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
     tty->c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
- }
+}
+
 
 void serial_connection_helper::updateTimeoutConfiguration( termios* tty , unsigned int timeout_deciseconds ) {
    // VMIN = 0, VTIME = 0: No blocking, return immediately with what is available
@@ -131,6 +148,7 @@ void serial_connection_helper::updateTimeoutConfiguration( termios* tty , unsign
    tty->c_cc[VMIN]  = 0;
 }
 
+
 void serial_connection_helper::configureDevice( int serial_port_fd, termios* tty ) {
 
    // Save tty settings, also checking for error
@@ -139,6 +157,7 @@ void serial_connection_helper::configureDevice( int serial_port_fd, termios* tty
        throw std::runtime_error("Error " + std::to_string( myerror ) + " from tcsetattr: " + strerror( myerror ));
    }
 }
+
 
 ::size_t serial_connection_helper::writeToDevice( int serial_port_fd, const unsigned char* const buffer, ::size_t count ) {
 
@@ -158,6 +177,7 @@ void serial_connection_helper::configureDevice( int serial_port_fd, termios* tty
     return bytes_written_sum;
 }
 
+
 ::ssize_t readByteFromDevice( int fd, unsigned char* charToRead ) {
 
     ssize_t read_result = ::read( fd, charToRead, 1 );
@@ -168,6 +188,7 @@ void serial_connection_helper::configureDevice( int serial_port_fd, termios* tty
     throw std::runtime_error("Error: " + std::to_string( myerror ) + " from ::read: " + strerror( myerror ));
 
 }
+
 
 ::size_t serial_connection_helper::readFromDevice( int serial_port_fd, unsigned char* buffer, ::size_t count , termios* tty_config ) {
 

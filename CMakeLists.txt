@@ -13,6 +13,7 @@ find_package(EDM REQUIRED)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# since this is a refactor branch, this is allowed. Period.
 add_link_options(-fuse-ld=mold)
 
 option(BUILD_EXAMPLES "Build example programs" OFF)

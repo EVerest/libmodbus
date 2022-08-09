@@ -5,6 +5,7 @@
 #include "crc16.hpp"
 #include "endian_tools.hpp"
 
+
 void ModbusTransport::RTU::connect() {
 
     close();

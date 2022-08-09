@@ -9,7 +9,6 @@ namespace ModbusMessages {
 
     using DataVector = std::vector<std::uint8_t>;
 
-
     struct ResponseData {
         DataVector data;
         DataVector::const_iterator payload_begin { data.begin() };
@@ -85,8 +84,6 @@ namespace ModbusMessages {
 
     };
 
-
 }
-
 
 #endif // MODBUS_MESSAGES_H_
