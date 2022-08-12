@@ -3,7 +3,6 @@
 #include <iostream>
 #include <string>
 #include <memory>
-#include <boost/log/trivial.hpp>
 #include <sstream>
 
 #include <connection/connection.hpp>
