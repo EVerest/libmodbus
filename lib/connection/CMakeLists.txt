@@ -1,19 +1,20 @@
-cmake_minimum_required(VERSION 3.10)
-
-# set the project name
-project(connection VERSION 0.1)
-
-# specify the C++ standard
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-
-find_package(EDM REQUIRED)
-
-add_library(libconnection include/connection/connection.hpp src/tcp.cpp src/udp.cpp src/utils.cpp src/rtu.cpp src/serial_connection_helper.cpp )
-add_library(everest::modbus::connection ALIAS libconnection)
-
-target_include_directories(libconnection
-    PUBLIC
-        ${PROJECT_SOURCE_DIR}/include/
+add_library(connection)
+add_library(modbus::connection ALIAS connection)
+set_target_properties(connection PROPERTIES OUTPUT_NAME modbus_connection)
+target_sources(connection
+    PRIVATE
+        src/rtu.cpp
+        src/serial_connection_helper.cpp
+        src/tcp.cpp
+        src/udp.cpp
+        src/utils.cpp
 )
-target_link_libraries(libconnection everest::log)
+
+target_include_directories(connection
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+)
+
+target_link_libraries(connection
+    PRIVATE everest::log
+)
