@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(EDM REQUIRED)
 
-add_library(libconnection include/connection/connection.hpp src/tcp.cpp src/udp.cpp src/utils.cpp)
+add_library(libconnection include/connection/connection.hpp src/tcp.cpp src/udp.cpp src/utils.cpp src/rtu.cpp src/serial_connection_helper.cpp )
 add_library(everest::modbus::connection ALIAS libconnection)
 
 target_include_directories(libconnection

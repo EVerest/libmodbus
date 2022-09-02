@@ -5,31 +5,48 @@
 
 #include <stdexcept>
 
-namespace everest { namespace connection { namespace exceptions {
+namespace everest {
 
-    class connection_error : public std::runtime_error {
-        public:
-            connection_error(const std::string& what_arg): std::runtime_error(what_arg) {}
-    };
-    class communication_error : public std::runtime_error {
-        public:
-            communication_error(const std::string& what_arg): std::runtime_error(what_arg) {}
-    };
+    namespace connection {
 
-    namespace tcp {
-        class tcp_connection_error : public connection_error {
+        namespace exceptions {
+
+            class connection_error : public std::runtime_error {
             public:
-                tcp_connection_error(const std::string& what_arg) : connection_error(what_arg) {}
-        };
-    };
+                connection_error(const std::string& what_arg): std::runtime_error(what_arg) {}
+            };
 
-    namespace udp {
-        class udp_socket_error : public connection_error {
+            class communication_error : public std::runtime_error {
             public:
-                udp_socket_error(const std::string& what_arg) : connection_error(what_arg) {}
-        };
-    };
+                communication_error(const std::string& what_arg): std::runtime_error(what_arg) {}
+            };
 
-  } // namespace exceptions
- }  // namespace connection
+            namespace tcp {
+                class tcp_connection_error : public connection_error {
+                public:
+                    tcp_connection_error(const std::string& what_arg) : connection_error(what_arg) {}
+                };
+            };
+
+            namespace udp {
+                class udp_socket_error : public connection_error {
+                public:
+                    udp_socket_error(const std::string& what_arg) : connection_error(what_arg) {}
+                };
+            };
+
+            namespace tty {
+                class tty_error : public connection_error {
+
+                public:
+
+                    int error_number;
+                    tty_error( const std::string& what_arg , int tty_error_number ) :
+                        connection_error( what_arg ),
+                        error_number( tty_error_number ) {}
+                };
+            }
+
+        } // namespace exceptions
+    }  // namespace connection
 };  // namespace everest

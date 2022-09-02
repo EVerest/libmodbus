@@ -17,7 +17,7 @@ const std::vector<uint8_t> ModbusIPClient::full_message_from_body(const std::vec
     return full_message;
 }
 
-const uint16_t ModbusIPClient::validate_response(const std::vector<uint8_t>& response, const std::vector<uint8_t>& request) const {
+uint16_t ModbusIPClient::validate_response(const std::vector<uint8_t>& response, const std::vector<uint8_t>& request) const {
     return modbus::utils::ip::check_mbap_header(request, response);
 }
 
