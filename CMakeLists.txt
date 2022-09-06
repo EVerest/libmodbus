@@ -55,7 +55,7 @@ target_include_directories(modbus
 # packaging
 if (MODBUS_INSTALL)
     install(
-        TARGETS modbus connection
+        TARGETS modbus modbus_connection
         EXPORT modbus-targets
     )
 
