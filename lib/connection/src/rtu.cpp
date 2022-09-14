@@ -7,12 +7,9 @@
 
 using namespace everest::connection;
 
-RTUConnection::RTUConnection( ::everest::connection::SerialDevice& serialdevice ) :
-    m_serial_device( serialdevice )
-{
+RTUConnection::RTUConnection(::everest::connection::SerialDevice& serialdevice) : m_serial_device(serialdevice) {
     make_connection();
 }
-
 
 int RTUConnection::make_connection() {
 
@@ -24,14 +21,13 @@ int RTUConnection::make_connection() {
 
         connection_status = 1; // connection should be valid
 
-    } catch ( const std::runtime_error& e ) {
+    } catch (const std::runtime_error& e) {
         EVLOG_error << "Error making RTU connection: " << e.what() << std::endl;
         throw;
     }
 
     return connection_status;
 }
-
 
 int RTUConnection::close_connection() {
 
@@ -40,13 +36,12 @@ int RTUConnection::close_connection() {
     return 0;
 }
 
-
 int RTUConnection::send_bytes(const std::vector<uint8_t>& bytes_to_send) {
 
     try {
-        auto bytes_written = m_serial_device.write( bytes_to_send.data(), bytes_to_send.size());
+        auto bytes_written = m_serial_device.write(bytes_to_send.data(), bytes_to_send.size());
         return bytes_written;
-    } catch ( const std::runtime_error& e ) {
+    } catch (const std::runtime_error& e) {
         close_connection();
         EVLOG_error << "Error writing on RTU connection: " << e.what() << std::endl;
         throw;
@@ -54,27 +49,24 @@ int RTUConnection::send_bytes(const std::vector<uint8_t>& bytes_to_send) {
     return -1;
 }
 
-
 std::vector<uint8_t> RTUConnection::receive_bytes(unsigned int number_of_bytes) {
 
-    if ( not is_valid() ) {
+    if (not is_valid()) {
         throw std::runtime_error("attempt to read on invalid rtu connection.");
     }
 
     std::vector<uint8_t> result(number_of_bytes);
 
     try {
-        auto bytes_read = m_serial_device.read(result.data(), number_of_bytes );
-        result.resize( bytes_read );
-    } catch ( const std::runtime_error& e ) {
+        auto bytes_read = m_serial_device.read(result.data(), number_of_bytes);
+        result.resize(bytes_read);
+    } catch (const std::runtime_error& e) {
         close_connection();
         EVLOG_error << "Error reading on RTU connection: " << e.what() << std::endl;
         throw;
-     }
+    }
     return result;
-
 }
-
 
 bool RTUConnection::is_valid() const {
     return connection_status != -1;
