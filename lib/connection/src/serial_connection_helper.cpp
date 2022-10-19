@@ -206,6 +206,8 @@ void ecs::configure_device(int serial_port_fd, termios* tty) {
         }
         bytes_written_sum += bytes_written;
     }
+
+    tcdrain(serial_port_fd);
     return bytes_written_sum;
 }
 
