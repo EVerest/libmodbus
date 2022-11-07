@@ -35,6 +35,32 @@ bool operator==(const termios& lhs, const termios& rhs) {
            (lhs.c_ospeed == rhs.c_ospeed);
 }
 
+everest::connection::SerialDeviceConfiguration::BaudrateFromIntResult
+everest::connection::SerialDeviceConfiguration::baudrate_from_integer(int baudrate) {
+    switch (baudrate) {
+    case 1200:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_1200, true};
+    case 2400:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_2400, true};
+    case 4800:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_4800, true};
+    case 9600:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_9600, true};
+    case 19200:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_19200, true};
+    case 38400:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_38400, true};
+    case 57600:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_57600, true};
+    case 115200:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_115200, true};
+    case 230400:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_230400, true};
+    default:
+        return {everest::connection::SerialDeviceConfiguration::BaudRate::Baud_9600, false};
+    }
+}
+
 namespace ecs = everest::connection::serial_connection_helper;
 
 everest::connection::SerialDeviceConfiguration::SerialDeviceConfiguration(std::string device) : m_device(device) {

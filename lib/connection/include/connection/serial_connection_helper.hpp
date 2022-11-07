@@ -61,6 +61,18 @@ struct SerialDeviceConfiguration {
         Baud_2000000 = B2000000,
     };
 
+    struct BaudrateFromIntResult {
+        BaudRate baud;
+        bool conversion_ok;
+    };
+
+    /**
+     * convert integer to SerialDeviceConfiguration::BaudRate. Returns Baud_9600 in case the argument has no
+     * corresponging SerialDeviceConfiguration::BaudRate value, and BaudrateFromIntResult.conversion_ok is set to false.
+     *
+     */
+    static BaudrateFromIntResult baudrate_from_integer(int);
+
     enum struct DataBits {
         Bit_8 = CS8,
         Bit_7 = CS7,

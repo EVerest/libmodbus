@@ -30,3 +30,21 @@ TEST(TestSerialHelper, testSerialHelperConfiguration) {
     auto l_flags = ICANON | ECHO | ECHOE | ECHONL | ISIG;
     EXPECT_EQ(config.m_tty_config.c_lflag & l_flags, 0);
 }
+
+TEST(TestSerialHelper, BaudFromInt) {
+
+    using namespace everest::connection;
+
+    {
+        SerialDeviceConfiguration::BaudrateFromIntResult result =
+            SerialDeviceConfiguration::baudrate_from_integer(19200);
+        EXPECT_EQ(result.baud, SerialDeviceConfiguration::BaudRate::Baud_19200);
+        EXPECT_TRUE(result.conversion_ok);
+    }
+
+    {
+        SerialDeviceConfiguration::BaudrateFromIntResult result = SerialDeviceConfiguration::baudrate_from_integer(666);
+        EXPECT_EQ(result.baud, SerialDeviceConfiguration::BaudRate::Baud_9600);
+        EXPECT_FALSE(result.conversion_ok);
+    }
+}
