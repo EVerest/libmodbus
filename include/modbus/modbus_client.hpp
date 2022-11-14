@@ -10,6 +10,7 @@
 
 #include <connection/connection.hpp>
 #include <consts.hpp>
+#include "types.hpp"
 
 namespace everest { namespace modbus {
 
@@ -60,11 +61,6 @@ namespace everest { namespace modbus {
             ModbusUDPClient(connection::UDPConnection& conn_);
             ~ModbusUDPClient() override = default;
         };
-
-        using DataVectorUint16 = std::vector<std::uint16_t>;
-        using DataVectorUint8  = std::vector<std::uint8_t>;
-
-        enum struct ByteOrder { BigEndian, LittleEndian };
 
         class ModbusDataContainerUint16 {
 
