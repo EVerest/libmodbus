@@ -10,8 +10,10 @@ namespace modbus {
 namespace consts {
 
 // General MODBUS constants
-constexpr uint16_t READ_HOLDING_REGISTER_MESSAGE_LENGTH = 6;
+// TODO: this constant should have the value 5...?
+constexpr uint16_t READ_REGISTER_COMMAND_LENGTH = 6;
 constexpr uint8_t READ_HOLDING_REGISTER_FUNCTION_CODE = 3;
+constexpr uint8_t READ_INPUT_REGISTER_FUNCTION_CODE = 4;
 
 // MODBUS/RTU specific constants
 namespace rtu {
