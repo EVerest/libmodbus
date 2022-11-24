@@ -346,6 +346,15 @@ TEST(RTUClientTest, test_rtu_client_read_holding_register) {
     }
 }
 
+TEST(RTUClientTest, test_rtu_client_read_input_register) {
+
+    FAIL() << "\n\n(imagine this message displayed in red, blinking...)\n\n *** needs to be implemented, currently we dont have data for this. ***\n\n";
+
+}
+
+
+
+
 TEST(RTUClientTest, test_rtu_client_write_multiple_register) {
 
     // test the writer_multiple_registers

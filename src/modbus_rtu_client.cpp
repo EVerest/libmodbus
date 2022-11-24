@@ -19,7 +19,7 @@ using namespace everest::modbus;
  * This is by design of the older parts of this library.
  */
 
-ModbusRTUClient::ModbusRTUClient(connection::Connection& conn_) : ModbusClient(conn_) {
+ModbusRTUClient::ModbusRTUClient(connection::Connection& conn_, bool ignore_echo) : ModbusClient(conn_), ignore_echo(ignore_echo) {
 }
 
 ModbusRTUClient::~ModbusRTUClient() {
@@ -63,7 +63,7 @@ const DataVectorUint8 ModbusRTUClient::read_holding_register(uint8_t unit_id, ui
     DataVectorUint8 body =
         utils::build_read_holding_register_message_body(first_register_address, num_registers_to_read);
 
-    DataVectorUint8 full_message = full_message_from_body(body, consts::READ_HOLDING_REGISTER_MESSAGE_LENGTH, unit_id);
+    DataVectorUint8 full_message = full_message_from_body(body, consts::READ_REGISTER_COMMAND_LENGTH, unit_id);
 
     conn.send_bytes(full_message);
     modbus::DataVectorUint8 response = conn.receive_bytes(max_adu_size());
@@ -75,6 +75,33 @@ const DataVectorUint8 ModbusRTUClient::read_holding_register(uint8_t unit_id, ui
     static_assert(false, "implementation currently done for little endian only");
 
 #endif
+}
+
+// HACK: is not a virtual function, not implementing the modbus interface.
+const DataVectorUint8 ModbusRTUClient::read_input_register(uint8_t unit_id, uint16_t first_register_address,
+                                                           uint16_t num_registers_to_read,
+                                                           bool return_only_registers_bytes) const {
+
+    std::vector<uint8_t> body =
+        utils::build_read_input_register_message_body(first_register_address, num_registers_to_read);
+    std::vector<uint8_t> full_message = full_message_from_body(body, consts::READ_REGISTER_COMMAND_LENGTH, unit_id);
+    conn.send_bytes(full_message);
+    std::vector<uint8_t> response = conn.receive_bytes(max_adu_size());
+
+    if (ignore_echo && response.size() > full_message.size()) {
+        auto request = std::vector<uint8_t>(response.begin(), response.begin() + full_message.size());
+        if (full_message == request) {
+            response = std::vector<uint8_t>(response.begin() + full_message.size(), response.end());
+        }
+    }
+
+    int num_register_bytes = validate_response(response, full_message);
+
+    if (return_only_registers_bytes) {
+        return utils::extract_register_bytes_from_response(response, num_register_bytes + 2);
+    }
+
+    return response;
 }
 
 DataVectorUint8 ModbusDataContainerUint16::get_payload_as_bigendian() const {

@@ -44,13 +44,13 @@ std::vector<uint8_t> utils::ip::make_mbap_header(uint16_t message_length, uint8_
     return mbap_header;
 }
 
-std::vector<uint8_t> utils::build_read_holding_register_message_body(uint16_t first_register_address,
-                                                                     uint16_t num_registers_to_read) {
-    // Preparing message body
-    std::vector<uint8_t> message_body(consts::READ_HOLDING_REGISTER_MESSAGE_LENGTH - 1);
+std::vector<uint8_t> utils::build_read_command_message_body(std::uint8_t function_code, uint16_t first_register_address,
+                                                            uint16_t num_registers_to_read) {
+
+    std::vector<uint8_t> message_body(consts::READ_REGISTER_COMMAND_LENGTH - 1);
 
     // Adding read function code
-    message_body[0] = consts::READ_HOLDING_REGISTER_FUNCTION_CODE;
+    message_body[0] = function_code;
 
     // Adding first register data address
     message_body[1] = (first_register_address >> 8) & 0xFF;
@@ -61,6 +61,18 @@ std::vector<uint8_t> utils::build_read_holding_register_message_body(uint16_t fi
     message_body[4] = num_registers_to_read & 0xFF;
 
     return message_body;
+}
+
+std::vector<uint8_t> utils::build_read_holding_register_message_body(uint16_t first_register_address,
+                                                                     uint16_t num_registers_to_read) {
+    return build_read_command_message_body(consts::READ_HOLDING_REGISTER_FUNCTION_CODE, first_register_address,
+                                           num_registers_to_read);
+}
+
+std::vector<uint8_t> utils::build_read_input_register_message_body(uint16_t first_register_address,
+                                                                   uint16_t num_registers_to_read) {
+    return build_read_command_message_body(consts::READ_INPUT_REGISTER_FUNCTION_CODE, first_register_address,
+                                           num_registers_to_read);
 }
 
 std::vector<uint8_t>
@@ -130,14 +142,13 @@ std::vector<uint8_t> utils::extract_body_from_response(const std::vector<uint8_t
 
 std::vector<uint8_t> utils::extract_register_bytes_from_response(const std::vector<uint8_t>& response,
                                                                  int num_data_bytes) {
-    std::vector<uint8_t> body = utils::extract_body_from_response(response, num_data_bytes);
-    return utils::extract_registers_bytes_from_response_body(body);
+    return utils::extract_registers_bytes_from_response_body(response);
 }
 
 std::vector<uint8_t> utils::extract_registers_bytes_from_response_body(const std::vector<uint8_t>& response_body) {
-    uint8_t num_register_bytes = response_body[2];
+    uint8_t num_register_bytes = response_body.at(2);
     std::vector<uint8_t> register_bytes =
-        std::vector<uint8_t>(response_body.end() - num_register_bytes, response_body.end());
+        std::vector<uint8_t>(response_body.begin() + 3, response_body.begin() + 3 + num_register_bytes);
     return register_bytes;
 }
 
