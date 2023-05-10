@@ -4,8 +4,8 @@
 #include <connection/exceptions.hpp>
 #include <connection/serial_connection_helper.hpp>
 
-#include <errno.h> // Error integer and strerror() function
-#include <fcntl.h> // Contains file controls like O_RDWR
+#include <errno.h>   // Error integer and strerror() function
+#include <fcntl.h>   // Contains file controls like O_RDWR
 #include <string.h>
 #include <termios.h> // Contains POSIX terminal control definitions
 #include <unistd.h>  // write(), read(), close()
@@ -30,9 +30,15 @@ void configure_device(int serial_port_fd, termios* tty);
 } // namespace everest
 
 bool operator==(const termios& lhs, const termios& rhs) {
-    return (lhs.c_cflag == rhs.c_cflag) and (lhs.c_iflag == rhs.c_iflag) and (lhs.c_ispeed == rhs.c_ispeed) and
-           (lhs.c_lflag == rhs.c_lflag) and (lhs.c_line == rhs.c_line) and (lhs.c_oflag == rhs.c_oflag) and
-           (lhs.c_ospeed == rhs.c_ospeed);
+    return
+#ifdef _HAVE_STRUCT_TERMIOS_C_ISPEED
+        (lhs.c_ispeed == rhs.c_ispeed) and
+#endif
+#ifdef _HAVE_STRUCT_TERMIOS_C_OSPEED
+        (lhs.c_ospeed == rhs.c_ospeed) and
+#endif
+        (lhs.c_cflag == rhs.c_cflag) and (lhs.c_iflag == rhs.c_iflag) and (lhs.c_lflag == rhs.c_lflag) and
+        (lhs.c_line == rhs.c_line) and (lhs.c_oflag == rhs.c_oflag);
 }
 
 everest::connection::SerialDeviceConfiguration::BaudrateFromIntResult
@@ -187,8 +193,8 @@ void ecs::set_default_configuration(termios* tty) {
     tty->c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL |
                       IXON); // Disable any special handling of received bytes
 
-    tty->c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
-    tty->c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
+    tty->c_oflag &= ~OPOST;  // Prevent special interpretation of output bytes (e.g. newline chars)
+    tty->c_oflag &= ~ONLCR;  // Prevent conversion of newline to carriage return/line feed
 }
 
 void ecs::update_timeout_configuration(termios* tty, unsigned int timeout_deciseconds) {
