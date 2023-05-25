@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 
 project(modbus
-    VERSION 0.2
+    VERSION 0.3
 )
 
 find_package(everest-cmake 0.1 REQUIRED
