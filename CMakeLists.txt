@@ -10,8 +10,9 @@ find_package(everest-cmake 0.1 REQUIRED
 
 # options
 option(BUILD_EXAMPLES "Build example programs" OFF)
-option(BUILD_TESTS "Build tests (gtest / test driven development)" OFF)
 option(MODBUS_INSTALL "Install the library (shared data might be installed anyway)" ${EVC_MAIN_PROJECT})
+option(${PROJECT_NAME}_BUILD_TESTING "Build unit tests, used if included as dependency" ON)
+option(BUILD_TESTING "Build unit tests, used if standalone project" ON)
 
 # dependencies
 if (NOT DISABLE_EDM)
@@ -22,7 +23,7 @@ if (NOT DISABLE_EDM)
 else()
     find_package(everest-log REQUIRED)
 
-    if (BUILD_TESTS)
+    if((${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME} OR ${PROJECT_NAME}_BUILD_TESTING) AND BUILD_TESTING)
         find_package(GTest REQUIRED)
     endif()
 endif()
@@ -78,7 +79,7 @@ if (BUILD_EXAMPLES)
     add_subdirectory(${PROJECT_SOURCE_DIR}/lib/connection/examples)
 endif()
 
-if (BUILD_TESTS)
+if((${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME} OR ${PROJECT_NAME}_BUILD_TESTING) AND BUILD_TESTING)
     enable_testing()
     add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
 endif()

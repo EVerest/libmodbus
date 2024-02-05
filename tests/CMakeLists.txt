@@ -1,5 +1,6 @@
-add_executable(test_rtu test_rtu.cpp)
-target_link_libraries(test_rtu
+set(${TEST_TARGET_NAME} ${PROJECT_NAME}_tests)
+add_executable(${TEST_TARGET_NAME}_rtu test_rtu.cpp)
+target_link_libraries(${TEST_TARGET_NAME}_rtu
     PRIVATE
         everest::modbus
         GTest::gtest_main
@@ -7,8 +8,8 @@ target_link_libraries(test_rtu
 )
 
 
-add_executable(test_serial_helper test_serial_helper.cpp)
-target_link_libraries(test_serial_helper
+add_executable(${TEST_TARGET_NAME}_serial_helper test_serial_helper.cpp)
+target_link_libraries(${TEST_TARGET_NAME}_serial_helper
     PRIVATE
         everest::modbus
         GTest::gtest_main
@@ -18,5 +19,5 @@ target_link_libraries(test_serial_helper
 
 include(GoogleTest)
 
-gtest_discover_tests(test_rtu)
-gtest_discover_tests(test_serial_helper)
+gtest_discover_tests(${TEST_TARGET_NAME}_rtu)
+gtest_discover_tests(${TEST_TARGET_NAME}_serial_helper)
