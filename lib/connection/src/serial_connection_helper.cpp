@@ -31,10 +31,10 @@ void configure_device(int serial_port_fd, termios* tty);
 
 bool operator==(const termios& lhs, const termios& rhs) {
     return
-#ifdef _HAVE_STRUCT_TERMIOS_C_ISPEED
+#if defined(_HAVE_STRUCT_TERMIOS_C_ISPEED) && _HAVE_STRUCT_TERMIOS_C_ISPEED
         (lhs.c_ispeed == rhs.c_ispeed) and
 #endif
-#ifdef _HAVE_STRUCT_TERMIOS_C_OSPEED
+#if defined(_HAVE_STRUCT_TERMIOS_C_OSPEED) && _HAVE_STRUCT_TERMIOS_C_OSPEED
         (lhs.c_ospeed == rhs.c_ospeed) and
 #endif
         (lhs.c_cflag == rhs.c_cflag) and (lhs.c_iflag == rhs.c_iflag) and (lhs.c_lflag == rhs.c_lflag) and
