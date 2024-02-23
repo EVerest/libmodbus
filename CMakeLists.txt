@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 
 project(modbus
-    VERSION 0.3
+    VERSION 0.3.1
 )
 
 find_package(everest-cmake 0.1 REQUIRED
@@ -13,7 +13,9 @@ option(BUILD_EXAMPLES "Build example programs" OFF)
 option(MODBUS_INSTALL "Install the library (shared data might be installed anyway)" ${EVC_MAIN_PROJECT})
 option(${PROJECT_NAME}_BUILD_TESTING "Build unit tests, used if included as dependency" OFF)
 option(BUILD_TESTING "Build unit tests, used if standalone project" OFF)
-
+if((${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME} OR ${PROJECT_NAME}_BUILD_TESTING) AND BUILD_TESTING)
+    set(LIBMODBUS_BUILD_TESTING ON)
+endif()
 # dependencies
 if (NOT DISABLE_EDM)
     evc_setup_edm()
@@ -23,7 +25,7 @@ if (NOT DISABLE_EDM)
 else()
     find_package(everest-log REQUIRED)
 
-    if((${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME} OR ${PROJECT_NAME}_BUILD_TESTING) AND BUILD_TESTING)
+    if(LIBMODBUS_BUILD_TESTING)
         find_package(GTest REQUIRED)
     endif()
 endif()
@@ -79,7 +81,7 @@ if (BUILD_EXAMPLES)
     add_subdirectory(${PROJECT_SOURCE_DIR}/lib/connection/examples)
 endif()
 
-if((${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME} OR ${PROJECT_NAME}_BUILD_TESTING) AND BUILD_TESTING)
+if(LIBMODBUS_BUILD_TESTING)
     include(CTest)
     enable_testing()
     add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
